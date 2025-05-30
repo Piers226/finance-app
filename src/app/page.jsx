@@ -3,6 +3,7 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import TransactionForm from "@/components/TransactionForm";
+import { useRouter } from "next/navigation";
 import {
   Typography,
   Button,
@@ -17,12 +18,31 @@ export default function HomePage() {
   const { data: session } = useSession();
   const [transactions, setTransactions] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     if (session?.user?.id) {
+      setLoadingTransactions(true);
       fetch(`/api/transactions?userId=${session.user.id}`)
         .then((res) => res.json())
-        .then(setTransactions);
+        .then(setTransactions)
+        .finally(() => setLoadingTransactions(false));
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      setLoadingCategories(true);
+      fetch(`/api/budget-categories?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length === 0) {
+            router.push("/setup");
+          }
+        })
+        .finally(() => setLoadingCategories(false));
     }
   }, [session]);
 
@@ -39,17 +59,33 @@ export default function HomePage() {
     );
   }
 
+  if (loadingTransactions || loadingCategories) {
+    return (
+      <Container sx={{ mt: 4 }}>
+        <Typography variant="h6">Loading...</Typography>
+      </Container>
+    );
+  }
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h5" gutterBottom>
         Welcome, {session.user.name}
       </Typography>
+
       <Button
         variant="outlined"
         onClick={() => signOut()}
         sx={{ mt: 1, mb: 3 }}
       >
         Log out
+      </Button>
+      <Button
+        variant="outlined"
+        sx={{ mt: 1, mb: 3 }}
+        onClick={() => router.push("/setup")}
+      >
+        Edit Budget
       </Button>
 
       {!showForm && (
