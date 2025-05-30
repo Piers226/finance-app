@@ -12,6 +12,8 @@ import {
   ListItemText,
   Container,
   Box,
+  Divider,
+  LinearProgress,
 } from "@mui/material";
 
 export default function HomePage() {
@@ -21,6 +23,7 @@ export default function HomePage() {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const router = useRouter();
+  const [budgetCategories, setBudgetCategories] = useState([]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -29,6 +32,10 @@ export default function HomePage() {
         .then((res) => res.json())
         .then(setTransactions)
         .finally(() => setLoadingTransactions(false));
+      fetch(`/api/budget-categories?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then(setBudgetCategories)
+        .finally(() => setLoadingCategories(false));
     }
   }, [session]);
 
@@ -111,7 +118,29 @@ export default function HomePage() {
           />
         </Box>
       )}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Budget Overview
+        </Typography>
+        {budgetCategories.map((cat) => {
+          const totalSpent = transactions
+            .filter((tx) => tx.category === cat.category)
+            .reduce((sum, tx) => sum + tx.amount, 0);
 
+          const progress = Math.min((totalSpent / cat.amount) * 100, 100);
+
+          return (
+            <Box key={cat._id} sx={{ mb: 2 }}>
+              <Typography>
+                {cat.category}: ${totalSpent.toFixed(2)} / $
+                {cat.amount.toFixed(2)}
+              </Typography>
+              <LinearProgress variant="determinate" value={progress} />
+            </Box>
+          );
+        })}
+        <Divider sx={{ my: 3 }} />
+      </Box>
       <Typography variant="h6" gutterBottom>
         Recent Transactions
       </Typography>

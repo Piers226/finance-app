@@ -9,6 +9,7 @@ export default function TransactionForm({ userId, onSuccess }) {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
   const categories = [
     "Coffee",
@@ -33,6 +34,7 @@ export default function TransactionForm({ userId, onSuccess }) {
         amount: parseFloat(amount),
         category,
         description,
+        date,
       }),
     });
 
@@ -40,6 +42,7 @@ export default function TransactionForm({ userId, onSuccess }) {
       setAmount('');
       setCategory('');
       setDescription('');
+      setDate(new Date().toISOString().slice(0, 10));
       if (onSuccess) onSuccess();
     }
   };
@@ -73,6 +76,14 @@ export default function TransactionForm({ userId, onSuccess }) {
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+        />
+        <TextField
+          label="Date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          required
         />
         <Button type="submit" variant="contained">
           Add Transaction
