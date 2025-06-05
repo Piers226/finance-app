@@ -5,24 +5,13 @@ import { useState } from 'react';
 import { TextField, Button, Stack, MenuItem, } from '@mui/material';
 
 
-export default function TransactionForm({ userId, onSuccess }) {
+export default function TransactionForm({ userId, onSuccess, onCancel, budgetCategories }) {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  // Format initial date to YYYY-MM-DD
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const categories = [
-    "Coffee",
-    "Groceries",
-    "Drinks",
-    "Gym",
-    "Eating Out",
-    "Transport",
-    "Household",
-    "Subscriptions",
-    "Trips",
-    "Takeout",
-  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,7 +23,7 @@ export default function TransactionForm({ userId, onSuccess }) {
         amount: parseFloat(amount),
         category,
         description,
-        date,
+        date: date, // This will now be YYYY-MM-DD format
       }),
     });
 
@@ -42,9 +31,17 @@ export default function TransactionForm({ userId, onSuccess }) {
       setAmount('');
       setCategory('');
       setDescription('');
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(new Date().toISOString().split('T')[0]);
       if (onSuccess) onSuccess();
     }
+  };
+
+  const handleCancel = () => {
+    setAmount('');
+    setCategory('');
+    setDescription('');
+    setDate(new Date().toISOString().split('T')[0]);
+    if (onCancel) onCancel();
   };
 
   return (
@@ -57,18 +54,19 @@ export default function TransactionForm({ userId, onSuccess }) {
           onChange={(e) => setAmount(e.target.value)}
           required
         />
-        <TextField
+       <TextField
           select
           label="Category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          required
         >
           <MenuItem value="" disabled>
             Select a category
           </MenuItem>
-          {categories.map((cat) => (
-            <MenuItem key={cat} value={cat}>
-              {cat}
+          {budgetCategories.map((cat) => (
+            <MenuItem key={cat._id} value={cat.category}>
+              {cat.category}
             </MenuItem>
           ))}
         </TextField>
@@ -87,6 +85,14 @@ export default function TransactionForm({ userId, onSuccess }) {
         />
         <Button type="submit" variant="contained">
           Add Transaction
+        </Button>
+        <Button 
+          type="button" 
+          variant="outlined" 
+          onClick={handleCancel}
+          color="secondary"
+        >
+          Cancel
         </Button>
       </Stack>
     </form>

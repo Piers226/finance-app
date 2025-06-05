@@ -4,6 +4,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import TransactionForm from "@/components/TransactionForm";
 import { useRouter } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
 import {
   Typography,
   Button,
@@ -74,6 +75,26 @@ export default function HomePage() {
     );
   }
 
+  const getWeekTransactions = (transactions) => {
+    const now = new Date();
+
+    // Get Monday of the current week
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - now.getDay() + 1);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay() + 7);
+    sunday.setHours(0, 0, 0, 0);
+
+    const mondayStr = monday.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const sundayStr = sunday.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    return transactions.filter((tx) => {
+      const txStr = new Date(tx.date).toISOString().slice(0, 10);
+      return txStr >= mondayStr && txStr <= sundayStr;
+    });
+  };
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h5" gutterBottom>
@@ -109,50 +130,73 @@ export default function HomePage() {
         <Box sx={{ mb: 4 }}>
           <TransactionForm
             userId={session.user.id}
+            budgetCategories={budgetCategories}
             onSuccess={() => {
               fetch(`/api/transactions?userId=${session.user.id}`)
                 .then((res) => res.json())
                 .then(setTransactions);
               setShowForm(false);
             }}
+            onCancel={() => setShowForm(false)}
           />
         </Box>
       )}
+
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
           Budget Overview
         </Typography>
         {budgetCategories.map((cat) => {
-          const totalSpent = transactions
+          const weeklyTransactions = getWeekTransactions(transactions);
+          const weeklySpent = weeklyTransactions
             .filter((tx) => tx.category === cat.category)
             .reduce((sum, tx) => sum + tx.amount, 0);
 
-          const progress = Math.min((totalSpent / cat.amount) * 100, 100);
+          const weeklyProgress = Math.min(
+            (weeklySpent / cat.amount) * 100,
+            100
+          );
 
           return (
-            <Box key={cat._id} sx={{ mb: 2 }}>
-              <Typography>
-                {cat.category}: ${totalSpent.toFixed(2)} / $
-                {cat.amount.toFixed(2)}
+            <Box key={cat._id} sx={{ mb: 3 }}>
+              <Typography>{cat.category}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Week: ${weeklySpent.toFixed(2)} / ${cat.amount.toFixed(2)}
               </Typography>
-              <LinearProgress variant="determinate" value={progress} />
+              <LinearProgress
+                variant="determinate"
+                value={weeklyProgress}
+                sx={{ height: 8 }}
+              />
             </Box>
           );
         })}
         <Divider sx={{ my: 3 }} />
       </Box>
+      <Button
+        variant="outlined"
+        onClick={() => router.push("/transactions")}
+        sx={{ mt: 2 }}
+      >
+        Manage Transactions
+      </Button>
       <Typography variant="h6" gutterBottom>
         Recent Transactions
       </Typography>
       <List>
-        {transactions.map((tx) => (
-          <ListItem key={tx._id} sx={{ borderBottom: "1px solid #ccc" }}>
-            <ListItemText
-              primary={`$${tx.amount} - ${tx.category || "Uncategorized"}`}
-              secondary={tx.description}
-            />
-          </ListItem>
-        ))}
+        {transactions.map((tx) => {
+          const label = formatDistanceToNow(new Date(tx.date), {
+            addSuffix: true,
+          });
+          return (
+            <ListItem key={tx._id} sx={{ borderBottom: "1px solid #ccc" }}>
+              <ListItemText
+                primary={`$${tx.amount} - ${tx.category || "Uncategorized"}`}
+                secondary={`${tx.description || "No description"} - ${label}`}
+              />
+            </ListItem>
+          );
+        })}
       </List>
     </Container>
   );
