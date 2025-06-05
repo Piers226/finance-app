@@ -18,7 +18,7 @@ const handler = NextAuth({
         await User.create({
           name: user.name,
           email: user.email,
-          // image: user.image, ← don't include this since you want to remove it
+          hasSetupBudget: false,
         });
       }
       return true;
