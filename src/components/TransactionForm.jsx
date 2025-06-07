@@ -1,29 +1,46 @@
-// components/TransactionForm.jsx
 'use client';
 
-import { useState } from 'react';
-import { TextField, Button, Stack, MenuItem, } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { TextField, Button, Stack, MenuItem } from '@mui/material';
 
-
-export default function TransactionForm({ userId, onSuccess, onCancel, budgetCategories }) {
+export default function TransactionForm({
+  userId,
+  onSuccess,
+  onCancel,
+  budgetCategories,
+  transaction, // Optional prop for editing
+}) {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  // Format initial date to YYYY-MM-DD
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
+  useEffect(() => {
+    if (transaction) {
+      setAmount(transaction.amount);
+      setCategory(transaction.category);
+      setDescription(transaction.description || '');
+      setDate(transaction.date?.split('T')[0]); // Format to YYYY-MM-DD
+    }
+  }, [transaction]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
+
+    const method = transaction ? 'PUT' : 'POST';
+    const endpoint = transaction
+      ? `/api/transactions/${transaction._id}`
+      : '/api/transactions';
+
+    const res = await fetch(endpoint, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId,
         amount: parseFloat(amount),
         category,
         description,
-        date: date, // This will now be YYYY-MM-DD format
+        date,
       }),
     });
 
@@ -54,7 +71,7 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
           onChange={(e) => setAmount(e.target.value)}
           required
         />
-       <TextField
+        <TextField
           select
           label="Category"
           value={category}
@@ -84,11 +101,11 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
           required
         />
         <Button type="submit" variant="contained">
-          Add Transaction
+          {transaction ? 'Update Transaction' : 'Add Transaction'}
         </Button>
-        <Button 
-          type="button" 
-          variant="outlined" 
+        <Button
+          type="button"
+          variant="outlined"
           onClick={handleCancel}
           color="secondary"
         >

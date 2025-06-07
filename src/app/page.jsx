@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import TransactionForm from "@/components/TransactionForm";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import GoogleButton from 'react-google-button'
+
 import {
   Typography,
   Button,
@@ -47,6 +49,7 @@ export default function HomePage() {
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data) && data.length === 0) {
+            alert("Please set up your budget categories first.");
             router.push("/setup");
           }
         })
@@ -60,9 +63,8 @@ export default function HomePage() {
         <Typography variant="h6" gutterBottom>
           Please log in
         </Typography>
-        <Button variant="contained" onClick={() => signIn("google")}>
-          Sign in with Google
-        </Button>
+        <GoogleButton onClick={() => signIn("google")}>
+        </GoogleButton>
       </Container>
     );
   }
@@ -111,9 +113,9 @@ export default function HomePage() {
       <Button
         variant="outlined"
         sx={{ mt: 1, mb: 3 }}
-        onClick={() => router.push("/setup")}
+        onClick={() => router.push("/managebudget")}
       >
-        Edit Budget
+        Manage Budget
       </Button>
 
       {!showForm && (

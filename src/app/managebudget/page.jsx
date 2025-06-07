@@ -17,9 +17,12 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  IconButton
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 
-export default function SetupPage() {
+export default function ManageBudgetPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const [category, setCategory] = useState("");
@@ -30,6 +33,9 @@ export default function SetupPage() {
   const [customCategory, setCustomCategory] = useState("");
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -55,27 +61,73 @@ export default function SetupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch("/api/budget-categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: session.user.id,
-        category: isCustomCategory ? customCategory : category,
-        amount: parseFloat(amount),
-        frequency,
-      }),
-    });
+    const payload = {
+      userId: session.user.id,
+      category: isCustomCategory ? customCategory : category,
+      amount: parseFloat(amount),
+      frequency,
+    };
 
-    if (res.ok) {
-      const newCategory = await res.json();
-      setBudgetCategories((prev) => [...prev, newCategory]);
-      setCategory("");
-      setAmount("");
-      setFrequency("weekly");
-      setCustomCategory("");
-      setIsCustomCategory(false);
-      setSuccess(true);
+    if (isEditing && selectedItem) {
+      const res = await fetch(`/api/budget-categories/${selectedItem._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBudgetCategories((prev) =>
+          prev.map((item) => (item._id === updated._id ? updated : item))
+        );
+        setIsEditing(false);
+        setSelectedItem(null);
+        setSuccess(true);
+      }
+    } else {
+      const res = await fetch('/api/budget-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const newCategory = await res.json();
+        setBudgetCategories((prev) => [...prev, newCategory]);
+        setSuccess(true);
+      }
     }
+
+    // Reset form
+    setCategory('');
+    setAmount('');
+    setFrequency('weekly');
+    setCustomCategory('');
+    setIsCustomCategory(false);
+  };
+
+  const handleEdit = (item) => {
+    setSelectedItem(item);
+    setIsEditing(true);
+    setCategory(item.category);
+    setAmount(item.amount.toString());
+    setFrequency(item.frequency);
+    const isDefault = default_categories.includes(item.category);
+    setIsCustomCategory(!isDefault);
+    if (!isDefault) setCustomCategory(item.category);
+  };
+
+  const handleDelete = async (id) => {
+    await fetch(`/api/budget-categories/${id}`, { method: 'DELETE' });
+    setBudgetCategories((prev) => prev.filter((item) => item._id !== id));
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setSelectedItem(null);
+    setCategory('');
+    setAmount('');
+    setFrequency('weekly');
+    setCustomCategory('');
+    setIsCustomCategory(false);
   };
 
   if (!session) return null;
@@ -83,7 +135,7 @@ export default function SetupPage() {
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
       <Typography variant="h5" gutterBottom>
-        Set Up Your Budget
+        Manage Your Budget
       </Typography>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2}>
@@ -142,9 +194,14 @@ export default function SetupPage() {
           </TextField>
           <Box display="flex" gap={2}>
             <Button type="submit" variant="contained">
-              Add Category
+              {isEditing ? 'Save Changes' : 'Add Category'}
             </Button>
-            <Button variant="outlined" onClick={() => router.push("/")}>
+            {isEditing && (
+              <Button variant="outlined" onClick={handleCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button variant="text" onClick={() => router.push('/')}>
               Done
             </Button>
           </Box>
@@ -164,15 +221,27 @@ export default function SetupPage() {
         ) : (
           <List>
             {budgetCategories.map((item) => (
-              <div key={item._id}>
-                <ListItem>
+              <>
+                <ListItem
+                  key={item._id}
+                  secondaryAction={
+                    <Box>
+                       <IconButton edge="end" onClick={() => handleEdit(item)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton edge="end" onClick={() => handleDelete(item._id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                    </Box>
+                  }
+                >
                   <ListItemText
                     primary={`${item.category} - $${item.amount.toFixed(2)}`}
                     secondary={`Frequency: ${item.frequency}`}
                   />
                 </ListItem>
                 <Divider />
-              </div>
+              </>
             ))}
           </List>
         )}
