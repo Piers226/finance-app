@@ -17,7 +17,9 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  IconButton
+  IconButton,
+  Switch,
+  FormControlLabel
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -30,6 +32,7 @@ export default function ManageBudgetPage() {
   const [frequency, setFrequency] = useState("weekly");
   const [success, setSuccess] = useState(false);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [isSubscription, setIsSubscription] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -66,6 +69,7 @@ export default function ManageBudgetPage() {
       category: isCustomCategory ? customCategory : category,
       amount: parseFloat(amount),
       frequency,
+      isSubscription,
     };
 
     if (isEditing && selectedItem) {
@@ -102,6 +106,7 @@ export default function ManageBudgetPage() {
     setFrequency('weekly');
     setCustomCategory('');
     setIsCustomCategory(false);
+    setIsSubscription(false);
   };
 
   const handleEdit = (item) => {
@@ -110,6 +115,7 @@ export default function ManageBudgetPage() {
     setCategory(item.category);
     setAmount(item.amount.toString());
     setFrequency(item.frequency);
+    setIsSubscription(item.isSubscription || false);
     const isDefault = default_categories.includes(item.category);
     setIsCustomCategory(!isDefault);
     if (!isDefault) setCustomCategory(item.category);
@@ -128,6 +134,7 @@ export default function ManageBudgetPage() {
     setFrequency('weekly');
     setCustomCategory('');
     setIsCustomCategory(false);
+    setIsSubscription(false);
   };
 
   if (!session) return null;
@@ -192,6 +199,15 @@ export default function ManageBudgetPage() {
             <MenuItem value="weekly">Weekly</MenuItem>
             <MenuItem value="monthly">Monthly</MenuItem>
           </TextField>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isSubscription}
+                onChange={(e) => setIsSubscription(e.target.checked)}
+              />
+            }
+            label="Subscription / Recurring"
+          />
           <Box display="flex" gap={2}>
             <Button type="submit" variant="contained">
               {isEditing ? 'Save Changes' : 'Add Category'}

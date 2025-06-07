@@ -81,11 +81,13 @@ export default function TransactionForm({
           <MenuItem value="" disabled>
             Select a category
           </MenuItem>
-          {budgetCategories.map((cat) => (
-            <MenuItem key={cat._id} value={cat.category}>
-              {cat.category}
-            </MenuItem>
-          ))}
+          {budgetCategories
+            .filter((cat) => !cat.isSubscription)
+            .map((cat) => (
+              <MenuItem key={cat._id} value={cat.category}>
+                {cat.category}
+              </MenuItem>
+            ))}
         </TextField>
         <TextField
           label="Description"

@@ -23,7 +23,7 @@ export async function PUT(req, context) {
   await connectToDatabase();
   const { id } = await context.params;
   const body = await req.json();
-  const { amount, category, description, date } = body;
+  const { amount, category, description, date, isSubscription } = body;
 
   const existingCategory = await BudgetCategory.findById(id);
   if (!existingCategory) {
@@ -34,7 +34,7 @@ export async function PUT(req, context) {
   try {
     const updatedBudgetCategory = await BudgetCategory.findByIdAndUpdate(
       id,
-      { amount, category, description, date },
+      { amount, category, description, date, isSubscription },
       { new: true }
     );
 
