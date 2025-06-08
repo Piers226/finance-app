@@ -73,21 +73,19 @@ export default function HomePage() {
 
   const getWeekTransactions = (transactions) => {
     const now = new Date();
-
-    // Get Monday of the current week
+    const day = now.getDay(); // 0 (Sun) - 6 (Sat)
+    const diffToMonday = (day + 6) % 7; // how many days since Monday
     const monday = new Date(now);
-    monday.setDate(now.getDate() - now.getDay() + 1);
+    monday.setDate(now.getDate() - diffToMonday);
     monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - now.getDay() + 7);
-    sunday.setHours(0, 0, 0, 0);
 
-    const mondayStr = monday.toISOString().slice(0, 10); // "YYYY-MM-DD"
-    const sundayStr = sunday.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
 
     return transactions.filter((tx) => {
-      const txStr = new Date(tx.date).toISOString().slice(0, 10);
-      return txStr >= mondayStr && txStr <= sundayStr;
+      const txDate = new Date(tx.date);
+      return txDate >= monday && txDate <= sunday;
     });
   };
 
@@ -257,7 +255,7 @@ export default function HomePage() {
         <Typography variant="h6">
           {budgetLeft >= 0
             ? `Budget Remaining: $${budgetLeft.toFixed(2)}`
-            : `Over Budget by: $${Math.abs(budgetLeft).toFixed(2)}`}
+            : `Over Budget ($${totalWeeklyBudget}) by: $${Math.abs(budgetLeft).toFixed(2)}`}
         </Typography>
       </Box>
       <Divider sx={{ my: 3 }} />
