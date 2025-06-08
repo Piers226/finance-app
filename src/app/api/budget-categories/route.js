@@ -4,9 +4,9 @@ import BudgetCategory from '@/models/BudgetCategory';
 
 export async function POST(req) {
   await connectToDatabase();
-  const { userId, category, amount, frequency = 'weekly' } = await req.json();
+  const { userId, category, amount, frequency = 'weekly', isSubscription = false } = await req.json();
 
-  if (!userId || !category || !amount) {
+  if (!userId || !category || amount == null) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
 
@@ -15,6 +15,7 @@ export async function POST(req) {
     category,
     amount,
     frequency,
+    isSubscription,
   });
 
   return NextResponse.json(newCategory);

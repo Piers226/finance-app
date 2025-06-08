@@ -1,29 +1,48 @@
-// components/TransactionForm.jsx
 'use client';
 
-import { useState } from 'react';
-import { TextField, Button, Stack, MenuItem, } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { TextField, Button, Stack, MenuItem } from '@mui/material';
+import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-
-export default function TransactionForm({ userId, onSuccess, onCancel, budgetCategories }) {
+export default function TransactionForm({
+  userId,
+  onSuccess,
+  onCancel,
+  budgetCategories,
+  transaction, // Optional prop for editing
+}) {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  // Format initial date to YYYY-MM-DD
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dateTime, setDateTime] = useState(new Date());
 
+  useEffect(() => {
+    if (transaction) {
+      setAmount(transaction.amount);
+      setCategory(transaction.category);
+      setDescription(transaction.description || '');
+      setDateTime(transaction.date ? new Date(transaction.date) : new Date());
+    }
+  }, [transaction]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
+
+    const method = transaction ? 'PUT' : 'POST';
+    const endpoint = transaction
+      ? `/api/transactions/${transaction._id}`
+      : '/api/transactions';
+
+    const res = await fetch(endpoint, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId,
         amount: parseFloat(amount),
         category,
         description,
-        date: date, // This will now be YYYY-MM-DD format
+        date: dateTime.toISOString(),
       }),
     });
 
@@ -31,7 +50,7 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
       setAmount('');
       setCategory('');
       setDescription('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDateTime(new Date());
       if (onSuccess) onSuccess();
     }
   };
@@ -40,7 +59,7 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
     setAmount('');
     setCategory('');
     setDescription('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDateTime(new Date());
     if (onCancel) onCancel();
   };
 
@@ -54,7 +73,7 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
           onChange={(e) => setAmount(e.target.value)}
           required
         />
-       <TextField
+        <TextField
           select
           label="Category"
           value={category}
@@ -64,31 +83,33 @@ export default function TransactionForm({ userId, onSuccess, onCancel, budgetCat
           <MenuItem value="" disabled>
             Select a category
           </MenuItem>
-          {budgetCategories.map((cat) => (
-            <MenuItem key={cat._id} value={cat.category}>
-              {cat.category}
-            </MenuItem>
-          ))}
+          {budgetCategories
+            .filter((cat) => !cat.isSubscription)
+            .map((cat) => (
+              <MenuItem key={cat._id} value={cat.category}>
+                {cat.category}
+              </MenuItem>
+            ))}
         </TextField>
         <TextField
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <TextField
-          label="Date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required
-        />
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DateTimePicker
+            label="Date & Time"
+            value={dateTime}
+            onChange={(newValue) => setDateTime(newValue)}
+            renderInput={(params) => <TextField {...params} required />}
+          />
+        </LocalizationProvider>
         <Button type="submit" variant="contained">
-          Add Transaction
+          {transaction ? 'Update Transaction' : 'Add Transaction'}
         </Button>
-        <Button 
-          type="button" 
-          variant="outlined" 
+        <Button
+          type="button"
+          variant="outlined"
           onClick={handleCancel}
           color="secondary"
         >

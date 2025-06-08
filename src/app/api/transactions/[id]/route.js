@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Transaction from '@/models/Transaction';
 
-export async function DELETE(req, { params }) {
+export async function DELETE(request, context) {
   await connectToDatabase();
-
-  const { id } = params;
+  const { id } = await context.params;
 
   if (!id) {
     return NextResponse.json({ error: 'Missing transaction ID' }, { status: 400 });
@@ -15,6 +14,29 @@ export async function DELETE(req, { params }) {
     await Transaction.findByIdAndDelete(id);
     return NextResponse.json({ message: 'Transaction deleted' });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req, context) {
+  await connectToDatabase();
+  const { id } = await context.params;
+  const body = await req.json();
+  const { amount, category, description, date } = body;
+
+  try {
+    const updatedTransaction = await Transaction.findByIdAndUpdate(
+      id,
+      {
+        amount,
+        category,
+        description,
+        date: date ? new Date(date) : new Date(),
+      },
+      { new: true }
+    );
+    return NextResponse.json(updatedTransaction);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

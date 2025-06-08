@@ -1,10 +1,12 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import TransactionForm from "@/components/TransactionForm";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import LandingPage from "./landing/page";
+
 import {
   Typography,
   Button,
@@ -15,6 +17,8 @@ import {
   Box,
   Divider,
   LinearProgress,
+  CircularProgress,
+  Grid,
 } from "@mui/material";
 
 export default function HomePage() {
@@ -47,6 +51,7 @@ export default function HomePage() {
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data) && data.length === 0) {
+            alert("Please set up your budget categories first.");
             router.push("/setup");
           }
         })
@@ -55,16 +60,7 @@ export default function HomePage() {
   }, [session]);
 
   if (!session) {
-    return (
-      <Container sx={{ mt: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Please log in
-        </Typography>
-        <Button variant="contained" onClick={() => signIn("google")}>
-          Sign in with Google
-        </Button>
-      </Container>
-    );
+    return <LandingPage />;
   }
 
   if (loadingTransactions || loadingCategories) {
@@ -95,6 +91,21 @@ export default function HomePage() {
     });
   };
 
+  // Calculate weekly budget vs spent for non-subscription categories
+  const nonSubCategories = budgetCategories.filter((cat) => !cat.isSubscription);
+  const totalWeeklyBudget = nonSubCategories.reduce(
+    (sum, cat) =>
+      sum + (cat.frequency === "weekly" ? cat.amount : cat.amount / 4),
+    0
+  );
+  const weeklyTransactions = getWeekTransactions(transactions);
+  const spentNonSub = weeklyTransactions
+    .filter((tx) =>
+      nonSubCategories.some((cat) => cat.category === tx.category)
+    )
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const budgetLeft = totalWeeklyBudget - spentNonSub;
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h5" gutterBottom>
@@ -111,9 +122,9 @@ export default function HomePage() {
       <Button
         variant="outlined"
         sx={{ mt: 1, mb: 3 }}
-        onClick={() => router.push("/setup")}
+        onClick={() => router.push("/managebudget")}
       >
-        Edit Budget
+        Manage Budget
       </Button>
 
       {!showForm && (
@@ -144,35 +155,112 @@ export default function HomePage() {
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
-          Budget Overview
+          Budget Overview (Weekly)
         </Typography>
-        {budgetCategories.map((cat) => {
-          const weeklyTransactions = getWeekTransactions(transactions);
-          const weeklySpent = weeklyTransactions
-            .filter((tx) => tx.category === cat.category)
-            .reduce((sum, tx) => sum + tx.amount, 0);
+        <Grid container spacing={2}>
+          {budgetCategories.filter((cat) => !cat.isSubscription).map((cat) => {
+            const weeklyTransactions = getWeekTransactions(transactions);
+            const weeklySpent = weeklyTransactions
+              .filter((tx) => tx.category === cat.category)
+              .reduce((sum, tx) => sum + tx.amount, 0);
 
-          const weeklyProgress = Math.min(
-            (weeklySpent / cat.amount) * 100,
-            100
-          );
+            const weeklyProgress = Math.min(
+              (weeklySpent / cat.amount) * 100,
+              100
+            );
 
-          return (
-            <Box key={cat._id} sx={{ mb: 3 }}>
-              <Typography>{cat.category}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Week: ${weeklySpent.toFixed(2)} / ${cat.amount.toFixed(2)}
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={weeklyProgress}
-                sx={{ height: 8 }}
-              />
-            </Box>
-          );
-        })}
-        <Divider sx={{ my: 3 }} />
+            return (
+              <Grid item xs={12} sm={6} md={4} key={cat._id}>
+                <Box sx={{ p: 2, border: '1px solid #ddd', borderRadius: 1 }}>
+                  <Typography>{cat.category}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Week: ${weeklySpent.toFixed(2)} / ${cat.amount.toFixed(2)}
+                  </Typography>
+                  <Box sx={{ position: "relative", display: "inline-flex", mt: 1 }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={weeklyProgress}
+                      sx={{
+                        color:
+                          weeklyProgress < 75
+                            ? 'success.main'
+                            : weeklyProgress < 100
+                            ? 'warning.main'
+                            : 'error.main',
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        top: 0,
+                        left: 0,
+                        bottom: 0,
+                        right: 0,
+                        position: "absolute",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography variant="caption" component="div" color="textSecondary">
+                        {`${Math.round(weeklyProgress)}%`}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
       </Box>
+     <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Subscriptions
+        </Typography>
+        <Grid container spacing={2}>
+          {budgetCategories
+            .filter((cat) => cat.isSubscription)
+            .map((cat) => {
+              const displayAmount =
+                cat.frequency === "weekly"
+                  ? cat.amount
+                  : cat.frequency === "monthly"
+                  ? cat.amount / 4
+                  : cat.amount;
+              return (
+                <Grid item xs={12} sm={6} md={4} key={cat._id}>
+                  <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
+                    <Typography>
+                      {cat.category}: ${displayAmount.toFixed(2)} ({cat.amount} / {cat.frequency})
+                    </Typography>
+                  </Box>
+                </Grid>
+              );
+            })}
+        </Grid>
+      </Box>
+      <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+        <Typography variant="h6">
+          Total Spent This Week: $
+          {getWeekTransactions(transactions)
+            .reduce((sum, tx) => sum + tx.amount, 0)
+            .toFixed(2)}
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          mb: 3,
+          p: 2,
+          bgcolor: budgetLeft >= 0 ? "#e8f5e9" : "#ffebee",
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="h6">
+          {budgetLeft >= 0
+            ? `Budget Remaining: $${budgetLeft.toFixed(2)}`
+            : `Over Budget by: $${Math.abs(budgetLeft).toFixed(2)}`}
+        </Typography>
+      </Box>
+      <Divider sx={{ my: 3 }} />
       <Button
         variant="outlined"
         onClick={() => router.push("/transactions")}
