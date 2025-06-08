@@ -27,7 +27,12 @@ export async function PUT(req, context) {
   try {
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
-      { amount, category, description, date },
+      {
+        amount,
+        category,
+        description,
+        date: date ? new Date(date) : new Date(),
+      },
       { new: true }
     );
     return NextResponse.json(updatedTransaction);

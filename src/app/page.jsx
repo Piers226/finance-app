@@ -91,6 +91,21 @@ export default function HomePage() {
     });
   };
 
+  // Calculate weekly budget vs spent for non-subscription categories
+  const nonSubCategories = budgetCategories.filter((cat) => !cat.isSubscription);
+  const totalWeeklyBudget = nonSubCategories.reduce(
+    (sum, cat) =>
+      sum + (cat.frequency === "weekly" ? cat.amount : cat.amount / 4),
+    0
+  );
+  const weeklyTransactions = getWeekTransactions(transactions);
+  const spentNonSub = weeklyTransactions
+    .filter((tx) =>
+      nonSubCategories.some((cat) => cat.category === tx.category)
+    )
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const budgetLeft = totalWeeklyBudget - spentNonSub;
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h5" gutterBottom>
@@ -229,6 +244,20 @@ export default function HomePage() {
           {getWeekTransactions(transactions)
             .reduce((sum, tx) => sum + tx.amount, 0)
             .toFixed(2)}
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          mb: 3,
+          p: 2,
+          bgcolor: budgetLeft >= 0 ? "#e8f5e9" : "#ffebee",
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="h6">
+          {budgetLeft >= 0
+            ? `Budget Remaining: $${budgetLeft.toFixed(2)}`
+            : `Over Budget by: $${Math.abs(budgetLeft).toFixed(2)}`}
         </Typography>
       </Box>
       <Divider sx={{ my: 3 }} />

@@ -3,6 +3,7 @@
 import { Box, Typography } from "@mui/material";
 import { signIn } from "next-auth/react";
 import GoogleButton from "react-google-button";
+import Image from "next/image";
 
 export default function LandingPage() {
   return (
@@ -26,18 +27,20 @@ export default function LandingPage() {
           boxShadow: 1,
         }}
       >
-        <Box
-          sx={{
-            width: 80,
-            height: 80,
-            bgcolor: "#f5f5f5",
-            borderRadius: "50%",
-            mx: "auto",
-            mb: 2,
+        <Image
+          src="/app_icon.png"  // Put your image in the public folder
+          alt="App Logo"
+          width={80}
+          height={80}
+          style={{
+            margin: 'auto',
+            marginBottom: 16,
+            borderRadius: '50%',
+            objectFit: 'cover'
           }}
         />
         <Typography variant="h5" component="h1" gutterBottom>
-          My App Title
+           M<sup>3</sup>
         </Typography>
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
           <GoogleButton onClick={() => signIn("google")} />

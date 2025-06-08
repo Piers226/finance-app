@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { TextField, Button, Stack, MenuItem } from '@mui/material';
+import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 export default function TransactionForm({
   userId,
@@ -13,14 +15,14 @@ export default function TransactionForm({
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dateTime, setDateTime] = useState(new Date());
 
   useEffect(() => {
     if (transaction) {
       setAmount(transaction.amount);
       setCategory(transaction.category);
       setDescription(transaction.description || '');
-      setDate(transaction.date?.split('T')[0]); // Format to YYYY-MM-DD
+      setDateTime(transaction.date ? new Date(transaction.date) : new Date());
     }
   }, [transaction]);
 
@@ -40,7 +42,7 @@ export default function TransactionForm({
         amount: parseFloat(amount),
         category,
         description,
-        date,
+        date: dateTime.toISOString(),
       }),
     });
 
@@ -48,7 +50,7 @@ export default function TransactionForm({
       setAmount('');
       setCategory('');
       setDescription('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDateTime(new Date());
       if (onSuccess) onSuccess();
     }
   };
@@ -57,7 +59,7 @@ export default function TransactionForm({
     setAmount('');
     setCategory('');
     setDescription('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDateTime(new Date());
     if (onCancel) onCancel();
   };
 
@@ -94,14 +96,14 @@ export default function TransactionForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <TextField
-          label="Date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required
-        />
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DateTimePicker
+            label="Date & Time"
+            value={dateTime}
+            onChange={(newValue) => setDateTime(newValue)}
+            renderInput={(params) => <TextField {...params} required />}
+          />
+        </LocalizationProvider>
         <Button type="submit" variant="contained">
           {transaction ? 'Update Transaction' : 'Add Transaction'}
         </Button>

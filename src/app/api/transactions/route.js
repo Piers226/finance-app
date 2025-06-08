@@ -20,15 +20,12 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // Format date to YYYY-MM-DD
-  const formattedDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
   const transaction = await Transaction.create({
     userId,
     amount,
     category,
     description,
-    date: formattedDate,
+    date: date ? new Date(date) : new Date(),
   });
 
   return NextResponse.json(transaction);
