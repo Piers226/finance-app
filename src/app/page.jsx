@@ -1,11 +1,11 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import TransactionForm from "@/components/TransactionForm";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import GoogleButton from "react-google-button";
+import LandingPage from "./landing/page";
 
 import {
   Typography,
@@ -60,14 +60,7 @@ export default function HomePage() {
   }, [session]);
 
   if (!session) {
-    return (
-      <Container sx={{ mt: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Please log in
-        </Typography>
-        <GoogleButton onClick={() => signIn("google")}></GoogleButton>
-      </Container>
-    );
+    return <LandingPage />;
   }
 
   if (loadingTransactions || loadingCategories) {
