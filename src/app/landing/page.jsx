@@ -40,7 +40,7 @@ export default function LandingPage() {
           }}
         />
         <Typography variant="h5" component="h1" gutterBottom>
-           M<sup>3</sup>
+           Money<sup>3</sup>
         </Typography>
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
           <GoogleButton onClick={() => signIn("google")} />

@@ -19,6 +19,8 @@ import {
   LinearProgress,
   CircularProgress,
   Grid,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 
 export default function HomePage() {
@@ -29,6 +31,7 @@ export default function HomePage() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const router = useRouter();
   const [budgetCategories, setBudgetCategories] = useState([]);
+  const [viewMode, setViewMode] = useState("week"); // or 'month'
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -42,6 +45,20 @@ export default function HomePage() {
         .then(setBudgetCategories)
         .finally(() => setLoadingCategories(false));
     }
+    const periodTransactions = getPeriodTransactions(transactions, viewMode);
+    const nonSubs = budgetCategories.filter((c) => !c.isSubscription);
+
+    const categorySummaries = nonSubs.map((cat) => {
+      const targetAmount = normalizeAmount(cat, viewMode);
+
+      const spent = periodTransactions
+        .filter((tx) => tx.category === cat.category)
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      const percent = Math.min((spent / targetAmount) * 100, 100);
+
+      return { id: cat._id, name: cat.category, spent, targetAmount, percent };
+    });
   }, [session]);
 
   useEffect(() => {
@@ -71,7 +88,7 @@ export default function HomePage() {
     );
   }
 
-  const getWeekTransactions = (transactions) => {
+  function getWeekTransactions(transactions) {
     const now = new Date();
     const day = now.getDay(); // 0 (Sun) - 6 (Sat)
     const diffToMonday = (day + 6) % 7; // how many days since Monday
@@ -87,10 +104,34 @@ export default function HomePage() {
       const txDate = new Date(tx.date);
       return txDate >= monday && txDate <= sunday;
     });
-  };
+  }
 
+  // 1) getPeriodTransactions: returns only txs in the current week or month
+  function getPeriodTransactions(transactions, mode) {
+    if (mode === "week") {
+      return getWeekTransactions(transactions);
+    }
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return transactions.filter((tx) => {
+      const d = new Date(tx.date);
+      return d >= start && d <= end;
+    });
+  }
+
+  function normalizeAmount(cat, mode) {
+    const { amount, frequency } = cat; // weekly | monthly
+    if (mode === "week") {
+      return frequency === "weekly" ? amount : amount / 4; // monthly → weekly
+    } else {
+      return frequency === "monthly" ? amount : amount * 4; // weekly → monthly
+    }
+  }
   // Calculate weekly budget vs spent for non-subscription categories
-  const nonSubCategories = budgetCategories.filter((cat) => !cat.isSubscription);
+  const nonSubCategories = budgetCategories.filter(
+    (cat) => !cat.isSubscription
+  );
   const totalWeeklyBudget = nonSubCategories.reduce(
     (sum, cat) =>
       sum + (cat.frequency === "weekly" ? cat.amount : cat.amount / 4),
@@ -103,6 +144,24 @@ export default function HomePage() {
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
   const budgetLeft = totalWeeklyBudget - spentNonSub;
+
+  // compute period transactions and summaries for the selected view
+  const periodTransactions = getPeriodTransactions(transactions, viewMode);
+  const nonSubs = budgetCategories.filter(c => !c.isSubscription);
+  const categorySummaries = nonSubs.map(cat => {
+    const targetAmount = normalizeAmount(cat, viewMode);
+    const spent = periodTransactions
+      .filter(tx => tx.category === cat.category)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    const percent = Math.min((spent / targetAmount) * 100, 100);
+    return {
+      id: cat._id,
+      name: cat.category,
+      spent,
+      targetAmount,
+      percent
+    };
+  });
 
   return (
     <Container sx={{ mt: 4 }}>
@@ -155,62 +214,61 @@ export default function HomePage() {
         <Typography variant="h6" gutterBottom>
           Budget Overview (Weekly)
         </Typography>
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, next) => next && setViewMode(next)}
+          sx={{ mb: 2 }}
+        >
+          <ToggleButton value="week">Week</ToggleButton>
+          <ToggleButton value="month">Month</ToggleButton>
+        </ToggleButtonGroup>
         <Grid container spacing={2}>
-          {budgetCategories.filter((cat) => !cat.isSubscription).map((cat) => {
-            const weeklyTransactions = getWeekTransactions(transactions);
-            const weeklySpent = weeklyTransactions
-              .filter((tx) => tx.category === cat.category)
-              .reduce((sum, tx) => sum + tx.amount, 0);
-
-            const weeklyProgress = Math.min(
-              (weeklySpent / cat.amount) * 100,
-              100
-            );
-
-            return (
-              <Grid item xs={12} sm={6} md={4} key={cat._id}>
-                <Box sx={{ p: 2, border: '1px solid #ddd', borderRadius: 1 }}>
-                  <Typography>{cat.category}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Week: ${weeklySpent.toFixed(2)} / ${cat.amount.toFixed(2)}
-                  </Typography>
-                  <Box sx={{ position: "relative", display: "inline-flex", mt: 1 }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={weeklyProgress}
-                      sx={{
-                        color:
-                          weeklyProgress < 75
-                            ? 'success.main'
-                            : weeklyProgress < 100
-                            ? 'warning.main'
-                            : 'error.main',
-                      }}
-                    />
-                    <Box
-                      sx={{
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        right: 0,
-                        position: "absolute",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography variant="caption" component="div" color="textSecondary">
-                        {`${Math.round(weeklyProgress)}%`}
-                      </Typography>
-                    </Box>
+          {categorySummaries.map(({ id, name, spent, targetAmount, percent }) => (
+            <Grid item xs={12} sm={6} md={4} key={id}>
+              <Box sx={{ p: 2, border: '1px solid #ddd', borderRadius: 1 }}>
+                <Typography>{name}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {viewMode === 'week'
+                    ? `Week: $${spent.toFixed(2)} / $${targetAmount.toFixed(2)}`
+                    : `Month: $${spent.toFixed(2)} / $${targetAmount.toFixed(2)}`}
+                </Typography>
+                <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
+                  <CircularProgress
+                    variant="determinate"
+                    value={percent}
+                    sx={{
+                      color:
+                        percent < 75
+                          ? 'success.main'
+                          : percent < 100
+                          ? 'warning.main'
+                          : 'error.main',
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      top: 0,
+                      left: 0,
+                      bottom: 0,
+                      right: 0,
+                      position: 'absolute',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Typography variant="caption" component="div" color="textSecondary">
+                      {`${Math.round(percent)}%`}
+                    </Typography>
                   </Box>
                 </Box>
-              </Grid>
-            );
-          })}
+              </Box>
+            </Grid>
+          ))}
         </Grid>
       </Box>
-     <Box sx={{ mt: 4 }}>
+      <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
           Subscriptions
         </Typography>
@@ -218,17 +276,16 @@ export default function HomePage() {
           {budgetCategories
             .filter((cat) => cat.isSubscription)
             .map((cat) => {
-              const displayAmount =
-                cat.frequency === "weekly"
-                  ? cat.amount
-                  : cat.frequency === "monthly"
-                  ? cat.amount / 4
-                  : cat.amount;
+              // normalize subscription cost to current view (week or month)
+              const displayAmount = normalizeAmount(cat, viewMode);
               return (
                 <Grid item xs={12} sm={6} md={4} key={cat._id}>
-                  <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
+                  <Box
+                    sx={{ p: 2, border: "1px dashed #ccc", borderRadius: 1 }}
+                  >
                     <Typography>
-                      {cat.category}: ${displayAmount.toFixed(2)} ({cat.amount} / {cat.frequency})
+                      {cat.category}: ${displayAmount.toFixed(2)} per{" "}
+                      {viewMode === "week" ? "week" : "month"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -255,7 +312,9 @@ export default function HomePage() {
         <Typography variant="h6">
           {budgetLeft >= 0
             ? `Budget Remaining: $${budgetLeft.toFixed(2)}`
-            : `Over Budget ($${totalWeeklyBudget}) by: $${Math.abs(budgetLeft).toFixed(2)}`}
+            : `Over Budget ($${totalWeeklyBudget}) by: $${Math.abs(
+                budgetLeft
+              ).toFixed(2)}`}
         </Typography>
       </Box>
       <Divider sx={{ my: 3 }} />
