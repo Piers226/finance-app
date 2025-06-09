@@ -1,8 +1,8 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Button } from "@mui/material";
 import { signIn } from "next-auth/react";
-import GoogleButton from "react-google-button";
+import GoogleIcon from "@mui/icons-material/Google";
 import Image from "next/image";
 
 export default function LandingPage() {
@@ -13,7 +13,7 @@ export default function LandingPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#f0f2f5",
+        bgcolor: "custom.darkNavy", // Use the custom dark navy color
       }}
     >
       <Box
@@ -43,7 +43,23 @@ export default function LandingPage() {
            Money<sup>3</sup>
         </Typography>
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-          <GoogleButton onClick={() => signIn("google")} />
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<GoogleIcon />}
+            onClick={() => signIn("google")}
+            sx={{
+              backgroundColor: "secondary.main",
+              color: "#fff",
+              textTransform: "none",
+              fontWeight: 500,
+              "&:hover": {
+                backgroundColor: "secondary.dark",
+              },
+            }}
+          >
+            Sign in with Google
+          </Button>
         </Box>
       </Box>
     </Box>
