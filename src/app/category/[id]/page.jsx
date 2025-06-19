@@ -25,7 +25,8 @@ export default function CategoryPage({ params }) {
   useEffect(() => {
     if (id) {
       async function fetchCategoryData() {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
         const apiUrl = `${baseUrl}/api/budget-categories/${id}`;
         console.log("Fetching data from API URL:", apiUrl);
 
@@ -33,7 +34,7 @@ export default function CategoryPage({ params }) {
           const res = await fetch(apiUrl);
           if (!res.ok) {
             throw new Error("Failed to fetch data");
-          }   
+          }
           const data = await res.json();
           setCategoryData(data);
         } catch (error) {
@@ -56,12 +57,23 @@ export default function CategoryPage({ params }) {
   const { name, weeklySpending, monthlySpending, spendingHistory } =
     categoryData;
 
+  // Group transactions by week starting on Monday
+  const groupedByWeek = spendingHistory.reduce((acc, tx) => {
+    const txDate = new Date(tx.date);
+    const weekStart = new Date(
+      txDate.setDate(txDate.getDate() - ((txDate.getDay() + 6) % 7))
+    );
+    const weekKey = weekStart.toLocaleDateString();
+    acc[weekKey] = (acc[weekKey] || 0) + tx.amount;
+    return acc;
+  }, {});
+
   const chartData = {
-    labels: spendingHistory.map((entry) => entry.date),
+    labels: Object.keys(groupedByWeek),
     datasets: [
       {
-        label: "Spending",
-        data: spendingHistory.map((entry) => entry.amount),
+        label: "Weekly Spending",
+        data: Object.values(groupedByWeek),
         borderColor: "#3f51b5",
         backgroundColor: "rgba(63, 81, 181, 0.2)",
       },
