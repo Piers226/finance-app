@@ -4,31 +4,55 @@ import { createTheme } from "@mui/material/styles";
 const theme = createTheme({
   palette: {
     primary: {
-      main: "rgb(102, 148, 160)",
-      light: "rgb(203, 236, 245)"
-
+      main: "#000000",
+      light: "#ffffff",
     },
     secondary: {
-      main: "rgb(181, 155, 130)",
-      dark: "rgb(117, 85, 55)", // Darker shade for hover effects
+      main: "#000000",
+      dark: "#333333",
     },
     success: {
-      main: "rgb(15, 157, 88)",
+      main: "#34C759", // iOS success green
     },
     warning: {
-      main: "rgb(244, 180, 0)",
+      main: "#FF9F0A", // iOS warning orange
     },
     error: {
-      main: "rgb(219, 68, 55)",
+      main: "#FF3B30", // iOS error red
     },
     background: {
-      default: "rgb(223, 223, 223)",
-      paper: "rgb(181, 155, 130)",
+      default: "#F2F2F7", // iOS light gray background
+      paper: "#FFFFFF",
+    },
+    text: {
+      primary: "#000000",
+      secondary: "#6e6e73", // Apple's secondary text color
     },
     custom: {
-      lightbeige: "rgb(245, 223, 203)",
-      darkNavy: "rgb(23, 64, 75)",
-      logout: "rgb(204, 99, 89)",
+      lightGray: "#F5F5F7",
+      mediumGray: "#86868B",
+      darkGray: "#1D1D1F",
+      buttonHover: "#2D2D2D",
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: "none",
+          fontWeight: 500,
+          padding: "8px 16px",
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+        },
+      },
     },
   },
 });
