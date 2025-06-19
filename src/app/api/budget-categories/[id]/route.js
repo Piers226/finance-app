@@ -1,19 +1,22 @@
-import { NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import BudgetCategory from '@/models/BudgetCategory';
-import Transaction from '@/models/Transaction';
+import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/mongodb";
+import BudgetCategory from "@/models/BudgetCategory";
+import Transaction from "@/models/Transaction";
 
 export async function DELETE(request, context) {
   await connectToDatabase();
   const { id } = await context.params;
 
   if (!id) {
-    return NextResponse.json({ error: 'Missing Budget Category ID' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing Budget Category ID" },
+      { status: 400 }
+    );
   }
 
   try {
     await BudgetCategory.findByIdAndDelete(id);
-    return NextResponse.json({ message: 'Budget Category deleted' });
+    return NextResponse.json({ message: "Budget Category deleted" });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -27,7 +30,10 @@ export async function PUT(req, context) {
 
   const existingCategory = await BudgetCategory.findById(id);
   if (!existingCategory) {
-    return NextResponse.json({ error: 'Budget Category not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: "Budget Category not found" },
+      { status: 404 }
+    );
   }
   const oldCategoryName = existingCategory.category;
 
@@ -45,6 +51,60 @@ export async function PUT(req, context) {
     );
 
     return NextResponse.json(updatedBudgetCategory);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function GET(request, context) {
+  await connectToDatabase();
+  const { id } = context.params;
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing Budget Category ID" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const category = await BudgetCategory.findById(id);
+
+    if (!category) {
+      return NextResponse.json(
+        { error: "Budget Category not found" },
+        { status: 404 }
+      );
+    }
+
+    // Calculate spending history and stats
+    const transactions = await Transaction.find({
+      category: category.category,
+    });
+    const spendingHistory = transactions.map((tx) => ({
+      date: tx.date,
+      amount: tx.amount,
+    }));
+
+    const weeklySpending = transactions
+      .filter((tx) => {
+        const txDate = new Date(tx.date);
+        const now = new Date();
+        return txDate >= new Date(now.setDate(now.getDate() - 7));
+      })
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const monthlySpending = transactions.reduce(
+      (sum, tx) => sum + tx.amount,
+      0
+    );
+
+    return NextResponse.json({
+      name: category.category,
+      weeklySpending,
+      monthlySpending,
+      spendingHistory,
+    });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
