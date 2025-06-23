@@ -68,14 +68,6 @@ export default function HomePage() {
     return <LandingPage />;
   }
 
-  if (loadingTransactions || loadingCategories) {
-    return (
-      <Container maxWidth="md" sx={{ mt: 4, px: 2 }}>
-        <Typography variant="h6">Loading...</Typography>
-      </Container>
-    );
-  }
-
   function getWeekTransactions(transactions) {
     const now = new Date();
     const day = now.getDay(); // 0 (Sun) - 6 (Sat)
@@ -204,18 +196,68 @@ export default function HomePage() {
           </Box>
         </Toolbar>
       </AppBar>
-      <Container maxWidth="md" sx={{ mt: 4, px: 2 }}>
+      <Container maxWidth="md" sx={{ mt: 4, px: { xs: 0.5, sm: 2 } }}>
         <Box
           sx={{
             display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: { xs: "stretch", sm: "center" },
             mb: 3,
+            gap: { xs: 2, sm: 0 },
           }}
         >
-          <Typography variant="h5" gutterBottom>
+          <Typography variant="h5" gutterBottom sx={{ mb: { xs: 1, sm: 0 } }}>
             Welcome, {session.user.name}
           </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: { xs: "flex-start", sm: "flex-end" },
+              gap: 2,
+              width: { xs: "100%", sm: "auto" },
+            }}
+          >
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "background.paper",
+                borderRadius: 5,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                width: { xs: "100%", sm: "auto" },
+                mb: { xs: 1, sm: 0 },
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 500, fontSize: { xs: "1rem", sm: "1.1rem" } }}
+              >
+                Total Spent This {viewMode === "week" ? "Week" : "Month"}: $
+                {totalSpent.toFixed(2)}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: viewBudgetLeft >= 0 ? "#e8f5e9" : "#ffebee",
+                borderRadius: 5,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                width: { xs: "100%", sm: "auto" },
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 500, fontSize: { xs: "1rem", sm: "1.1rem" } }}
+              >
+                {viewBudgetLeft >= 0
+                  ? `Budget Remaining: $${viewBudgetLeft.toFixed(2)}`
+                  : `Over Budget by: $${Math.abs(viewBudgetLeft).toFixed(
+                      2
+                    )} (Budget: $${totalBudget.toFixed(2)})`}
+              </Typography>
+            </Box>
+          </Box>
         </Box>
 
         {!showForm && (
@@ -223,11 +265,12 @@ export default function HomePage() {
             variant="contained"
             onClick={() => setShowForm(true)}
             sx={{
-              mt: 2,
-              mb: 4,
+              mt: { xs: 1, sm: 2 },
+              mb: 1,
               borderRadius: 6,
               textTransform: "none",
               fontWeight: 500,
+              width: { xs: "100%", sm: "auto" },
             }}
           >
             Add Transaction
@@ -254,41 +297,69 @@ export default function HomePage() {
           <Typography variant="h6" gutterBottom>
             Budget Overview ({viewMode === "week" ? "Week" : "Month"})
           </Typography>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={(_, next) => next && setViewMode(next)}
+          <Box
             sx={{
-              mb: 2,
-              bgcolor: "background.paper",
-              border: "1px solid rgba(0,0,0,0.1)",
-              borderRadius: "8px",
-              overflow: "hidden",
-              "& .MuiToggleButton-root": {
-                border: "none",
-                borderRadius: "0",
-                mx: 0,
-                px: 3,
-                py: 1,
-                color: "text.secondary",
-                fontWeight: 500,
-                "&.Mui-selected": {
-                  bgcolor: "primary.main",
-                  color: "primary.light",
-                  fontWeight: 600,
-                  "&:hover": {
-                    bgcolor: "primary.main",
-                  },
-                },
-                "&:hover": {
-                  bgcolor: "rgba(0,0,0,0.05)",
-                },
-              },
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              mb: 1.5,
             }}
           >
-            <ToggleButton value="week">Week</ToggleButton>
-            <ToggleButton value="month">Month</ToggleButton>
-          </ToggleButtonGroup>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, next) => next && setViewMode(next)}
+              sx={{
+                bgcolor: "background.paper",
+                border: "1px solid rgba(0,0,0,0.1)",
+                borderRadius: "8px",
+                overflow: "hidden",
+                "& .MuiToggleButton-root": {
+                  border: "none",
+                  borderRadius: "0",
+                  mx: 0,
+                  px: 3,
+                  py: 1,
+                  color: "text.secondary",
+                  fontWeight: 500,
+                  "&.Mui-selected": {
+                    bgcolor: "primary.main",
+                    color: "primary.light",
+                    fontWeight: 600,
+                    "&:hover": {
+                      bgcolor: "primary.main",
+                    },
+                  },
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.05)",
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="week">Week</ToggleButton>
+              <ToggleButton value="month">Month</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Box
+            sx={{
+              bgcolor: "#f5f5f5",
+              color: "text.secondary",
+              borderRadius: 99,
+              px: 2,
+              py: 0.25,
+              fontSize: "0.8rem",
+              fontWeight: 400,
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              letterSpacing: 0.1,
+              display: "inline-block",
+              mt: 1,
+              ml: 0,
+              whiteSpace: "nowrap",
+              textAlign: "center",
+            }}
+          >
+            Click Each Category to View Details
+          </Box>
           <List
             sx={{
               width: "100%",
@@ -312,6 +383,7 @@ export default function HomePage() {
                       bgcolor: "background.paper",
                       borderRadius: 5,
                       boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      cursor: "pointer", // Add pointer cursor
                       "&:hover": {
                         transform: "translateY(-1px)",
                         boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
@@ -381,6 +453,7 @@ export default function HomePage() {
             )}
           </List>
         </Box>
+
         <Box sx={{ mt: 4, mb: 4 }}>
           <Typography variant="h5" sx={{ mb: 2, fontWeight: 500 }}>
             Subscriptions
@@ -418,37 +491,7 @@ export default function HomePage() {
               })}
           </List>
         </Box>
-        <Box
-          sx={{
-            p: 3,
-            mb: 2,
-            bgcolor: "background.paper",
-            borderRadius: 5,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 500 }}>
-            Total Spent This {viewMode === "week" ? "Week" : "Month"}: $
-            {totalSpent.toFixed(2)}
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            p: 3,
-            mb: 4,
-            bgcolor: viewBudgetLeft >= 0 ? "#e8f5e9" : "#ffebee",
-            borderRadius: 5,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          }}
-        >
-          <Typography variant="h6">
-            {viewBudgetLeft >= 0
-              ? `Budget Remaining: $${viewBudgetLeft.toFixed(2)}`
-              : `Over Budget by: $${Math.abs(viewBudgetLeft).toFixed(
-                  2
-                )} (Budget: $${totalBudget.toFixed(2)})`}
-          </Typography>
-        </Box>
+
         <Divider sx={{ my: 3 }} />
         <Button
           variant="outlined"

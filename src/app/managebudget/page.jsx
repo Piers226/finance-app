@@ -19,10 +19,13 @@ import {
   Divider,
   IconButton,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  InputAdornment,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import CategoryIcon from "@mui/icons-material/Category";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 
 export default function ManageBudgetPage() {
   const { data: session } = useSession();
@@ -74,8 +77,8 @@ export default function ManageBudgetPage() {
 
     if (isEditing && selectedItem) {
       const res = await fetch(`/api/budget-categories/${selectedItem._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -88,9 +91,9 @@ export default function ManageBudgetPage() {
         setSuccess(true);
       }
     } else {
-      const res = await fetch('/api/budget-categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/budget-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -101,10 +104,10 @@ export default function ManageBudgetPage() {
     }
 
     // Reset form
-    setCategory('');
-    setAmount('');
-    setFrequency('weekly');
-    setCustomCategory('');
+    setCategory("");
+    setAmount("");
+    setFrequency("weekly");
+    setCustomCategory("");
     setIsCustomCategory(false);
     setIsSubscription(false);
   };
@@ -122,17 +125,17 @@ export default function ManageBudgetPage() {
   };
 
   const handleDelete = async (id) => {
-    await fetch(`/api/budget-categories/${id}`, { method: 'DELETE' });
+    await fetch(`/api/budget-categories/${id}`, { method: "DELETE" });
     setBudgetCategories((prev) => prev.filter((item) => item._id !== id));
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setSelectedItem(null);
-    setCategory('');
-    setAmount('');
-    setFrequency('weekly');
-    setCustomCategory('');
+    setCategory("");
+    setAmount("");
+    setFrequency("weekly");
+    setCustomCategory("");
     setIsCustomCategory(false);
     setIsSubscription(false);
   };
@@ -141,10 +144,26 @@ export default function ManageBudgetPage() {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
-      <Typography variant="h5" gutterBottom>
-        Manage Your Budget
-      </Typography>
-      <form onSubmit={handleSubmit}>
+      <Box
+        component={"form"}
+        onSubmit={handleSubmit}
+        autoComplete="off"
+        sx={{
+          p: { xs: 2, sm: 4 },
+          borderRadius: 4,
+          maxWidth: 420,
+          mx: "auto",
+          mt: 2,
+          bgcolor: "background.paper",
+          boxShadow: 3,
+        }}
+      >
+        <Typography
+          variant="h6"
+          sx={{ mb: 2, fontWeight: 600, textAlign: "center" }}
+        >
+          {isEditing ? "Edit Category" : "Add Category"}
+        </Typography>
         <Stack spacing={2}>
           <TextField
             label="Category"
@@ -157,6 +176,14 @@ export default function ManageBudgetPage() {
             select
             helperText="Select a budget category or add custom"
             defaultValue=""
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <CategoryIcon color="primary" />
+                </InputAdornment>
+              ),
+            }}
           >
             <MenuItem value="" disabled>
               Select a category
@@ -180,6 +207,14 @@ export default function ManageBudgetPage() {
               required
               autoFocus
               placeholder="Enter your custom category"
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CategoryIcon color="primary" />
+                  </InputAdornment>
+                ),
+              }}
             />
           )}
 
@@ -189,12 +224,22 @@ export default function ManageBudgetPage() {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             required
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <AttachMoneyIcon color="primary" />
+                </InputAdornment>
+              ),
+              inputProps: { min: 0, step: 0.01 },
+            }}
+            fullWidth
           />
           <TextField
             select
             label="Frequency"
             value={frequency}
             onChange={(e) => setFrequency(e.target.value)}
+            fullWidth
           >
             <MenuItem value="weekly">Weekly</MenuItem>
             <MenuItem value="monthly">Monthly</MenuItem>
@@ -207,27 +252,47 @@ export default function ManageBudgetPage() {
               />
             }
             label="Subscription / Recurring"
+            sx={{ ml: 1 }}
           />
-          <Box display="flex" gap={2}>
-            <Button type="submit" variant="contained">
-              {isEditing ? 'Save Changes' : 'Add Category'}
+          <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{ fontWeight: 600, borderRadius: 3 }}
+              fullWidth
+            >
+              {isEditing ? "Save Changes" : "Add Category"}
             </Button>
             {isEditing && (
-              <Button variant="outlined" onClick={handleCancel}>
+              <Button
+                variant="outlined"
+                onClick={handleCancel}
+                sx={{ fontWeight: 600, borderRadius: 3 }}
+                fullWidth
+              >
                 Cancel
               </Button>
             )}
-            <Button variant="text" onClick={() => router.push('/')}>
+            <Button
+              variant="text"
+              onClick={() => router.push("/")}
+              sx={{ fontWeight: 600, borderRadius: 3 }}
+              fullWidth
+            >
               Done
             </Button>
           </Box>
         </Stack>
-      </form>
-      {success && (
-        <Typography variant="body2" color="green" sx={{ mt: 2 }}>
-          Budget category added!
-        </Typography>
-      )}
+        {success && (
+          <Typography
+            variant="body2"
+            color="green"
+            sx={{ mt: 2, textAlign: "center" }}
+          >
+            Budget category added!
+          </Typography>
+        )}
+      </Box>
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
           Your Budget Categories
@@ -242,12 +307,15 @@ export default function ManageBudgetPage() {
                   key={item._id}
                   secondaryAction={
                     <Box>
-                       <IconButton edge="end" onClick={() => handleEdit(item)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton edge="end" onClick={() => handleDelete(item._id)}>
-                          <DeleteIcon />
-                        </IconButton>
+                      <IconButton edge="end" onClick={() => handleEdit(item)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        onClick={() => handleDelete(item._id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
                     </Box>
                   }
                 >
