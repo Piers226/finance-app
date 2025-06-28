@@ -24,6 +24,7 @@ import {
   AppBar,
   Toolbar,
 } from "@mui/material";
+import ChatWindow from "@/components/ChatWindow";
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -340,6 +341,7 @@ export default function HomePage() {
               <ToggleButton value="month">Month</ToggleButton>
             </ToggleButtonGroup>
           </Box>
+          {/*<ChatWindow />*/}
           <Box
             sx={{
               bgcolor: "#f5f5f5",
