@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import LandingPage from "./landing/page";
 import PlaidLinker from "@/components/PlaidLinker";
+import PendingTransactionsList from "@/components/PendingTransactionsList";
 
 import {
   Typography,
@@ -37,6 +38,17 @@ export default function HomePage() {
   const router = useRouter();
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [viewMode, setViewMode] = useState("week"); // or 'month'
+  const [pendingTransactions, setPendingTransactions] = useState([]);
+
+  // Load pending transactions on page load
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch(`/api/pending-transactions?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then(setPendingTransactions)
+        .catch((e) => console.error("Failed to load pending transactions", e));
+    }
+  }, [session]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -109,6 +121,43 @@ export default function HomePage() {
       const d = new Date(tx.date);
       return d >= start && d <= end;
     });
+  }
+
+  // --- handlers for pending transactions ---
+  async function handleCategorise(tx, category) {
+    // save as official transaction
+    await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: session.user.id,
+        amount: tx.amount,
+        category,
+        description: tx.description,
+        date: tx.date,
+      }),
+    });
+    // remove from pending store
+    const delId = tx._id || tx.id || tx.transactionId;
+    if (delId) {
+      await fetch(`/api/pending-transactions/${delId}`, { method: 'DELETE' });
+    }
+    setTransactions((prev) => [{ ...tx, category }, ...prev]);
+    setPendingTransactions((prev) => prev.filter((p) => (p._id || p.id || p.transactionId) !== delId));
+  }
+
+  async function handleDiscard(tx) {
+    const delId2 = tx._id || tx.id || tx.transactionId;
+    if (delId2) {
+      await fetch(`/api/pending-transactions/${delId2}`, { method: 'DELETE' });
+    }
+    setPendingTransactions((prev) => prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2));
+  }
+
+  function handlePlaidTransactions() {
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions);
   }
 
   function normalizeAmount(cat, mode) {
@@ -344,7 +393,13 @@ export default function HomePage() {
             </ToggleButtonGroup>
           </Box>
           {/*<ChatWindow />*/}
-          <PlaidLinker />
+          <PlaidLinker onTransactions={handlePlaidTransactions} />
+          <PendingTransactionsList
+            pending={pendingTransactions}
+            budgetCategories={budgetCategories}
+            onCategorised={handleCategorise}
+            onDiscard={handleDiscard}
+          />
           <Box
             sx={{
               bgcolor: "#f5f5f5",

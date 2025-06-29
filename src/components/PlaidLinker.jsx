@@ -83,7 +83,20 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
           });
           const txData = await txRes.json();
           console.log("Plaid transactions:", txData);
-          if (onTransactions) onTransactions(txData);
+          // Persist to backend as pending
+          try {
+            await fetch("/api/pending-transactions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: session?.user?.id,
+                transactions: txData.transactions || [],
+              }),
+            });
+          } catch (e) {
+            console.error("Could not save pending transactions", e);
+          }
+          if (onTransactions) onTransactions(txData.transactions || []);
         } else {
           setError(data.error || "Could not exchange token");
         }

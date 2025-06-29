@@ -11,12 +11,11 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
   Box,
+  Select,
+  MenuItem,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
+
 import TransactionForm from "@/components/TransactionForm";
 
 export default function TransactionsPage() {
@@ -37,6 +36,20 @@ export default function TransactionsPage() {
       .then(setBudgetCategories);
   }, [session]);
 
+  const handleQuickCategoryChange = (id, category) => {
+    fetch(`/api/transactions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category }),
+    })
+      .then((res) => res.json())
+      .then((updated) => {
+        setTransactions((prev) =>
+          prev.map((tx) => (tx._id === id ? { ...tx, category } : tx))
+        );
+      });
+  };
+
   const handleDelete = (id) => {
     fetch(`/api/transactions/${id}`, { method: "DELETE" }).then(() =>
       fetch(`/api/transactions?userId=${session.user.id}`)
@@ -48,6 +61,10 @@ export default function TransactionsPage() {
   const handleEdit = (tx) => {
     setEditingTx(tx);
     setShowForm(true);
+    // smooth scroll to top where the form is
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   if (!session) {
@@ -100,17 +117,32 @@ export default function TransactionsPage() {
           return (
             <ListItem key={tx._id} sx={{ borderBottom: "1px solid #ccc" }}>
               <ListItemText
-                primary={`$${tx.amount} - ${tx.category || "Uncategorized"}`}
+                primary={`$${tx.amount}`}
                 secondary={`${tx.description || "No description"} - ${label}`}
               />
-              <ListItemSecondaryAction>
-                <IconButton edge="end" onClick={() => handleEdit(tx)}>
-                  <EditIcon />
-                </IconButton>
-                <IconButton edge="end" onClick={() => handleDelete(tx._id)}>
-                  <DeleteIcon />
-                </IconButton>
-              </ListItemSecondaryAction>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Select
+                  size="small"
+                  value={tx.category || ""}
+                  onChange={(e) => handleQuickCategoryChange(tx._id, e.target.value)}
+                  displayEmpty
+                >
+                  <MenuItem value="" disabled>
+                    Category
+                  </MenuItem>
+                  {budgetCategories.map((cat) => (
+                    <MenuItem key={cat._id} value={cat.category}>
+                      {cat.category}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Button variant="contained" size="small" onClick={() => handleEdit(tx)}>
+                  Edit
+                </Button>
+                <Button variant="text" color="error" size="small" onClick={() => handleDelete(tx._id)}>
+                  Discard
+                </Button>
+              </Box>
             </ListItem>
           );
         })}

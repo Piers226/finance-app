@@ -40,15 +40,20 @@ export async function POST(request) {
   }
 
   if (action === "get_transactions") {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = now;
-    const response = await plaidClient.transactionsGet({
-      access_token,
-      start_date: start.toISOString().slice(0, 10),
-      end_date: end.toISOString().slice(0, 10),
-    });
-    return NextResponse.json(response.data);
+    try {
+      const response = await plaidClient.transactionsSync({
+        access_token,
+        cursor: null, // initial pull
+        count: 100,
+      });
+      return NextResponse.json(response.data);
+    } catch (err) {
+      console.error("Plaid transactionsSync error", err.response?.data || err);
+      return NextResponse.json(
+        { error: err.response?.data || "Plaid error" },
+        { status: 400 }
+      );
+    }
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
