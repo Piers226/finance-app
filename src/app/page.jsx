@@ -7,6 +7,7 @@ import TransactionForm from "@/components/TransactionForm";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import LandingPage from "./landing/page";
+import PlaidLinker from "@/components/PlaidLinker";
 
 import {
   Typography,
@@ -25,6 +26,7 @@ import {
   Toolbar,
 } from "@mui/material";
 import ChatWindow from "@/components/ChatWindow";
+import { Chat } from "openai/resources/index";
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -342,6 +344,7 @@ export default function HomePage() {
             </ToggleButtonGroup>
           </Box>
           {/*<ChatWindow />*/}
+          <PlaidLinker />
           <Box
             sx={{
               bgcolor: "#f5f5f5",
