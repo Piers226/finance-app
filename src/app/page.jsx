@@ -231,6 +231,15 @@ export default function HomePage() {
             >
               Manage Budget
             </Button>
+            <Button 
+              variant="outlined"
+              sx={{
+                borderRadius: 6,
+                textTransform: "none",
+                fontWeight: 500,
+              }} onClick={() => router.push('/paybacks')}>
+              Payback Tracker
+            </Button>
             {session && (
               <Button
                 onClick={() => signOut()}

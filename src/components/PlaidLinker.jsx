@@ -111,14 +111,21 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
     },
   });
 
+  // Automatically open once ready
+  useEffect(() => {
+    if (linkToken && ready) {
+      open();
+    }
+  }, [linkToken, ready, open]);
+
   return (
     <Box sx={{ my: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
       {bankLinked && <Alert severity="success">Bank account linked!</Alert>}
       <Button
         variant="contained"
-        onClick={linkToken ? open : createLinkToken}
-        disabled={loading || (linkToken && !ready)}
+        onClick={createLinkToken}
+        disabled={loading}
       >
         {loading ? (
           <CircularProgress size={20} />
