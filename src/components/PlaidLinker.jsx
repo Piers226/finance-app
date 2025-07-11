@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Button,
   Box,
@@ -9,13 +9,17 @@ import {
 import { usePlaidLink } from "react-plaid-link";
 import { useSession } from "next-auth/react";
 
-export default function PlaidLinker({ onLinked, onTransactions }) {
+export default function PlaidLinker({ onLinked, onTransactions, variant = "contained" }) {
   const { data: session } = useSession();
   const [linkToken, setLinkToken] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [bankLinked, setBankLinked] = useState(false);
+  // Capture Plaid OAuth redirect URI if present (Link opened in new tab)
+  const receivedRedirectUri = typeof window !== "undefined" && window.location.search.includes("oauth_state_id")
+    ? window.location.href
+    : undefined;
 
   useEffect(() => {
     async function fetchBankStatus() {
@@ -29,7 +33,7 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
   }, [session]);
 
   // Step 1: Get a link token from backend
-  async function createLinkToken() {
+  const createLinkToken = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -49,11 +53,12 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [session]);
 
   // Step 2: Use Plaid Link
   const { open, ready } = usePlaidLink({
     token: linkToken,
+    receivedRedirectUri,
     onSuccess: async (public_token, metadata) => {
       setLoading(true);
       setError(null);
@@ -72,31 +77,13 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
         if (data.access_token) {
           setSuccess(true);
           if (onLinked) onLinked(data);
-          // Step 4: Fetch transactions
-          const txRes = await fetch("/api/plaid", {
+          // Trigger initial sync of transactions on the server
+          await fetch("/api/plaid/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "get_transactions",
-              access_token: data.access_token,
-            }),
+            body: JSON.stringify({ userId: session?.user?.id }),
           });
-          const txData = await txRes.json();
-          console.log("Plaid transactions:", txData);
-          // Persist to backend as pending
-          try {
-            await fetch("/api/pending-transactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userId: session?.user?.id,
-                transactions: txData.transactions || [],
-              }),
-            });
-          } catch (e) {
-            console.error("Could not save pending transactions", e);
-          }
-          if (onTransactions) onTransactions(txData.transactions || []);
+          if (onTransactions) onTransactions([]);
         } else {
           setError(data.error || "Could not exchange token");
         }
@@ -123,21 +110,17 @@ export default function PlaidLinker({ onLinked, onTransactions }) {
       {error && <Alert severity="error">{error}</Alert>}
       {bankLinked && <Alert severity="success">Bank account linked!</Alert>}
       <Button
-        variant="contained"
+        variant={variant}
         onClick={createLinkToken}
-        disabled={loading}
+        disabled={loading || bankLinked}
+        sx={{ borderRadius: 6 }}
       >
         {loading ? (
           <CircularProgress size={20} />
-        ) : linkToken ? (
-          "Link Bank Account"
         ) : (
-          "Start Bank Link"
+          "Link Bank Account"
         )}
       </Button>
-      <Typography variant="body2" sx={{ mt: 1 }}>
-        Securely link your bank to import recent transactions.
-      </Typography>
     </Box>
   );
 }

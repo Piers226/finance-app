@@ -6,6 +6,8 @@ const UserSchema = new mongoose.Schema({
   hasSetupBudget: { type: Boolean, default: false },
   chatCount: { type: Number, default: 20 }, // Start with 20 chats
   plaidAccessToken: { type: String }, // Store Plaid access token
+  plaidItemId: { type: String }, // Plaid item_id for webhooks
+  plaidCursor: { type: String, default: null }, // Last transactionsSync cursor
   bankLinked: { type: Boolean, default: false }, // Track if bank is linked
 });
 

@@ -126,9 +126,9 @@ export default function HomePage() {
   // --- handlers for pending transactions ---
   async function handleCategorise(tx, category) {
     // save as official transaction
-    await fetch('/api/transactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: session.user.id,
         amount: tx.amount,
@@ -140,18 +140,22 @@ export default function HomePage() {
     // remove from pending store
     const delId = tx._id || tx.id || tx.transactionId;
     if (delId) {
-      await fetch(`/api/pending-transactions/${delId}`, { method: 'DELETE' });
+      await fetch(`/api/pending-transactions/${delId}`, { method: "DELETE" });
     }
     setTransactions((prev) => [{ ...tx, category }, ...prev]);
-    setPendingTransactions((prev) => prev.filter((p) => (p._id || p.id || p.transactionId) !== delId));
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId)
+    );
   }
 
   async function handleDiscard(tx) {
     const delId2 = tx._id || tx.id || tx.transactionId;
     if (delId2) {
-      await fetch(`/api/pending-transactions/${delId2}`, { method: 'DELETE' });
+      await fetch(`/api/pending-transactions/${delId2}`, { method: "DELETE" });
     }
-    setPendingTransactions((prev) => prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2));
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2)
+    );
   }
 
   function handlePlaidTransactions() {
@@ -206,7 +210,13 @@ export default function HomePage() {
         }}
       >
         <Toolbar
-          sx={{ display: "flex", justifyContent: "space-between", py: 2 }}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 1,
+            px: 2,
+          }}
         >
           <Typography
             variant="h5"
@@ -221,7 +231,7 @@ export default function HomePage() {
           </Typography>
           <Box sx={{ display: "flex", gap: 2 }}>
             <Button
-              variant="outlined"
+              variant="text"
               sx={{
                 borderRadius: 6,
                 textTransform: "none",
@@ -231,24 +241,28 @@ export default function HomePage() {
             >
               Manage Budget
             </Button>
-            <Button 
-              variant="outlined"
+            <Button
+              variant="text"
               sx={{
                 borderRadius: 6,
                 textTransform: "none",
                 fontWeight: 500,
-              }} onClick={() => router.push('/paybacks')}>
+              }}
+              onClick={() => router.push("/paybacks")}
+            >
               Payback Tracker
             </Button>
             {session && (
               <Button
                 onClick={() => signOut()}
+                variant="outlined"
                 sx={{
                   bgcolor: "transparent",
                   color: "text.primary",
                   "&:hover": {
                     bgcolor: "rgba(0,0,0,0.05)",
                   },
+                  borderRadius: 6,
                 }}
               >
                 Log out
@@ -337,6 +351,10 @@ export default function HomePage() {
             Add Transaction
           </Button>
         )}
+        <PlaidLinker
+          onTransactions={handlePlaidTransactions}
+          variant="outlined"
+        />
 
         {showForm && (
           <Box sx={{ mb: 4 }}>
@@ -402,7 +420,6 @@ export default function HomePage() {
             </ToggleButtonGroup>
           </Box>
           {/*<ChatWindow />*/}
-          <PlaidLinker onTransactions={handlePlaidTransactions} />
           <PendingTransactionsList
             pending={pendingTransactions}
             budgetCategories={budgetCategories}

@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
-import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
+import getPlaidClient from "@/lib/plaidClient";
 
-const config = new Configuration({
-  basePath: PlaidEnvironments[process.env.PLAID_ENV],
-  baseOptions: {
-    headers: {
-      "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
-      "PLAID-SECRET": process.env.PLAID_SECRET,
-    },
-  },
-});
-const plaidClient = new PlaidApi(config);
+const plaidClient = getPlaidClient();
 
 export async function POST(request) {
   const { action, public_token, access_token, userId } = await request.json();
@@ -32,8 +23,14 @@ export async function POST(request) {
     });
     // Save access_token to user in DB
     const User = (await import("@/models/User")).default;
+    const existingUser = await User.findById(userId);
+    if (existingUser?.bankLinked) {
+      return NextResponse.json({ error: "Bank account already linked" }, { status: 400 });
+    }
     await User.findByIdAndUpdate(userId, {
       plaidAccessToken: response.data.access_token,
+      plaidItemId: response.data.item_id,
+      plaidCursor: null, // reset sync cursor
       bankLinked: true,
     });
     return NextResponse.json({ access_token: response.data.access_token });
