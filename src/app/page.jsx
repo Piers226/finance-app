@@ -39,6 +39,20 @@ export default function HomePage() {
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [viewMode, setViewMode] = useState("week"); // or 'month'
   const [pendingTransactions, setPendingTransactions] = useState([]);
+  // refetch helper after Plaid sync
+  async function refreshData() {
+    if (!session?.user?.id) return;
+    // refetch pending
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions)
+      .catch((e) => console.error("Failed to refresh pending transactions", e));
+    // refetch transactions list (recent list)
+    fetch(`/api/transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setTransactions)
+      .catch((e) => console.error("Failed to refresh transactions", e));
+  }
 
   // Load pending transactions on page load
   useEffect(() => {
@@ -355,6 +369,14 @@ export default function HomePage() {
           onTransactions={handlePlaidTransactions}
           variant="outlined"
         />
+        {/*<ChatWindow />*/}
+        <PendingTransactionsList
+          pending={pendingTransactions}
+          budgetCategories={budgetCategories}
+          onCategorised={handleCategorise}
+          onDiscard={handleDiscard}
+          onSynced={refreshData}
+        />
 
         {showForm && (
           <Box sx={{ mb: 4 }}>
@@ -419,13 +441,6 @@ export default function HomePage() {
               <ToggleButton value="month">Month</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          {/*<ChatWindow />*/}
-          <PendingTransactionsList
-            pending={pendingTransactions}
-            budgetCategories={budgetCategories}
-            onCategorised={handleCategorise}
-            onDiscard={handleDiscard}
-          />
           <Box
             sx={{
               bgcolor: "#f5f5f5",

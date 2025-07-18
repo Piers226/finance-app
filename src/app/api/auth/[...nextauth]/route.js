@@ -14,7 +14,7 @@ export const authOptions = {
     async signIn({ user }) {
       await connectToDatabase();
       const existing = await User.findOne({ email: user.email });
-      const verified = user.email === "par226@lehigh.edu";
+      const verified = user.email === "par226@lehigh.edu" || user.email === "piersr52@gmail.com";
       if (!verified) {
         return false;
       }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import BudgetCategory from "@/models/BudgetCategory";
 import Transaction from "@/models/Transaction";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 export async function DELETE(request, context) {
   await connectToDatabase();
@@ -69,8 +71,16 @@ export async function GET(request, context) {
     );
   }
 
+  // ----- Identify requesting user -----
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   try {
-    const category = await BudgetCategory.findById(id);
+    const category = await BudgetCategory.findOne({ _id: id, userId });
 
     if (!category) {
       return NextResponse.json(
@@ -79,8 +89,9 @@ export async function GET(request, context) {
       );
     }
 
-    // Calculate spending history and stats
+    // Calculate spending history and stats for this user only
     const transactions = await Transaction.find({
+      userId,
       category: category.category,
     });
     const spendingHistory = transactions.map((tx) => ({
