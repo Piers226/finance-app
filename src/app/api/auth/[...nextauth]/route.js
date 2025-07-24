@@ -3,7 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/models/User";
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -14,6 +14,10 @@ const handler = NextAuth({
     async signIn({ user }) {
       await connectToDatabase();
       const existing = await User.findOne({ email: user.email });
+      const verified = user.email === "par226@lehigh.edu" || user.email === "piersr52@gmail.com";
+      if (!verified) {
+        return false;
+      }
       if (!existing) {
         await User.create({
           name: user.name,
@@ -33,6 +37,8 @@ const handler = NextAuth({
       return session;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

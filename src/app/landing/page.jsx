@@ -35,7 +35,6 @@ export default function LandingPage() {
           style={{
             margin: 'auto',
             marginBottom: 16,
-            borderRadius: '50%',
             objectFit: 'cover'
           }}
         />

@@ -19,10 +19,13 @@
     "mongoose": "^8.15.1",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
+    "openai": "^5.7.0",
+    "plaid": "^36.0.0",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
-    "react-google-button": "^0.8.0"
+    "react-google-button": "^0.8.0",
+    "react-plaid-link": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
