@@ -16,6 +16,7 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [bankLinked, setBankLinked] = useState(false);
+  const [bankName, setBankName] = useState("");
   // Capture Plaid OAuth redirect URI if present (Link opened in new tab)
   const receivedRedirectUri = typeof window !== "undefined" && window.location.search.includes("oauth_state_id")
     ? window.location.href
@@ -27,7 +28,10 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
       const res = await fetch("/api/user/bank-status");
       const data = await res.json();
       setBankLinked(!!data.bankLinked);
-      if (data.bankLinked) setSuccess(true);
+      if (data.bankLinked) {
+        setSuccess(true);
+        if (data.bankName) setBankName(data.bankName);
+      }
     }
     fetchBankStatus();
   }, [session]);
@@ -71,12 +75,15 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
             action: "exchange_public_token",
             public_token,
             userId: session?.user?.id,
+            institutionName: metadata?.institution?.name || "",
           }),
         });
         const data = await res.json();
         if (data.access_token) {
           setSuccess(true);
-          if (onLinked) onLinked(data);
+          if (onLinked) onLinked({ ...data, institution: metadata.institution });
+          // Save bank name locally
+          if (metadata?.institution?.name) setBankName(metadata.institution.name);
           // Trigger initial sync of transactions on the server
           await fetch("/api/plaid/sync", {
             method: "POST",
@@ -108,19 +115,50 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
   return (
     <Box sx={{ my: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
-      {bankLinked && <Alert severity="success">Bank account linked!</Alert>}
-      <Button
-        variant={variant}
-        onClick={createLinkToken}
-        disabled={loading || bankLinked}
-        sx={{ borderRadius: 6 }}
-      >
-        {loading ? (
-          <CircularProgress size={20} />
-        ) : (
-          "Link Bank Account"
-        )}
-      </Button>
+      {bankLinked ? (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+            Bank linked{bankName ? `: ${bankName}` : ""}
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={async () => {
+              setLoading(true);
+              setError(null);
+              try {
+                const res = await fetch("/api/plaid", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "get_transactions",
+                    userId: session?.user?.id,
+                  }),
+                });
+                const data = await res.json();
+                if (data.error) setError(data.error);
+                else if (onTransactions) onTransactions(data);
+              } catch (err) {
+                setError(err.message || "Sync failed");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={16} /> : "Sync"}
+          </Button>
+        </Box>
+      ) : (
+        <Button
+          variant={variant}
+          onClick={createLinkToken}
+          disabled={loading}
+          sx={{ borderRadius: 6 }}
+        >
+          {loading ? <CircularProgress size={20} /> : "Link Bank Account"}
+        </Button>
+      )}
     </Box>
   );
 }

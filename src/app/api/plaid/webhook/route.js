@@ -8,6 +8,7 @@ export async function POST(request) {
   if (body.webhook_type !== "TRANSACTIONS" || body.webhook_code !== "SYNC_UPDATES_AVAILABLE") {
     return NextResponse.json({ status: "ignored" });
   }
+  console.log("Plaid webhook received", body);
 
   const { item_id } = body;
   if (!item_id) return NextResponse.json({ error: "item_id missing" }, { status: 400 });

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   List,
   ListItem,
@@ -8,6 +10,7 @@ import {
   MenuItem,
   Select,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import { format } from "date-fns";
 
@@ -16,8 +19,34 @@ export default function PendingTransactionsList({
   budgetCategories,
   onCategorised,
   onDiscard,
+  onSynced,
 }) {
   const [selected, setSelected] = useState({});
+  const { data: session } = useSession();
+  const [syncLoading, setSyncLoading] = useState(false);
+// router may be used elsewhere but no longer for refresh
+  const router = useRouter();
+
+  const handleSync = async () => {
+    if (!session?.user?.id) return;
+    try {
+      setSyncLoading(true);
+      await fetch("/api/plaid/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ userId: session.user.id }),
+      });
+      // Immediately fetch updated pending transactions list
+      const res = await fetch(`/api/pending-transactions?userId=${session.user.id}`);
+      const updated = await res.json();
+      if (onSynced) onSynced(updated);
+    } catch (err) {
+      console.error("Sync failed", err);
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const handleChange = (id, value) => {
     setSelected((prev) => ({ ...prev, [id]: value }));
@@ -36,6 +65,15 @@ export default function PendingTransactionsList({
 
   return (
     <Box sx={{ mt: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={handleSync}
+          disabled={syncLoading || !session?.user?.id}
+        >
+          {syncLoading ? <CircularProgress size={20} /> : "Sync Transactions"}
+        </Button>
+      </Box>
       <Typography variant="h6" sx={{ mb: 2 }}>
         Pending Transactions
       </Typography>
@@ -73,17 +111,15 @@ export default function PendingTransactionsList({
             >
               Save
             </Button>
-            <Button
-              variant="text"
-              color="error"
-              onClick={() => onDiscard(tx)}
-            >
+            <Button variant="text" color="error" onClick={() => onDiscard(tx)}>
               Discard
             </Button>
           </ListItem>
         ))}
         {pending.length === 0 && (
-          <Typography variant="body2">No pending transactions 🎉</Typography>
+          <Typography variant="body2">
+            No pending transactions to review🎉
+          </Typography>
         )}
       </List>
     </Box>

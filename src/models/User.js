@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
   plaidItemId: { type: String }, // Plaid item_id for webhooks
   plaidCursor: { type: String, default: null }, // Last transactionsSync cursor
   bankLinked: { type: Boolean, default: false }, // Track if bank is linked
+  bankName: { type: String, default: "" }, // Institution display name
 });
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

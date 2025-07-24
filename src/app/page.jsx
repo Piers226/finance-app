@@ -370,14 +370,13 @@ export default function HomePage() {
           variant="outlined"
         />
         {/*<ChatWindow />*/}
-        <PendingTransactionsList
+        {/*<PendingTransactionsList
           pending={pendingTransactions}
           budgetCategories={budgetCategories}
           onCategorised={handleCategorise}
           onDiscard={handleDiscard}
           onSynced={refreshData}
-        />
-
+        />*/}
         {showForm && (
           <Box sx={{ mb: 4 }}>
             <TransactionForm

@@ -22,17 +22,16 @@ export async function POST(request) {
 
   try {
     let cursor = user.plaidCursor || null;
-    let hasMore = true;
     let totalAdded = 0;
 
-    while (hasMore) {
-      const resp = await plaidClient.transactionsSync({
-        access_token: user.plaidAccessToken,
-        cursor,
-        count: 100,
-      });
+    // Retrieve only the most recent 20 transactions since the last cursor
+    const resp = await plaidClient.transactionsSync({
+      access_token: user.plaidAccessToken,
+      cursor,
+      count: 20,
+    });
 
-      const { added = [], removed = [], next_cursor, has_more } = resp.data;
+    const { added = [], removed = [], next_cursor } = resp.data;
 
       // Upsert new or updated transactions
       if (added.length) {
@@ -64,16 +63,16 @@ export async function POST(request) {
         await PendingTransaction.deleteMany({ transactionId: { $in: ids } });
       }
 
+      // update cursor to latest position for next incremental call
       cursor = next_cursor;
-      hasMore = has_more;
-    }
 
-    // Persist cursor for next sync
-    user.plaidCursor = cursor;
-    await user.save();
+      // Persist cursor for next sync
+      user.plaidCursor = cursor;
+      await user.save();
 
-    return NextResponse.json({ addedCount: totalAdded });
-  } catch (err) {
+      return NextResponse.json({ addedCount: totalAdded });
+  } 
+  catch (err) {
     console.error("Plaid sync error", err.response?.data || err);
     return NextResponse.json({ error: "Plaid sync failed" }, { status: 500 });
   }
