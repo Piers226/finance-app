@@ -2,11 +2,26 @@ import { NextResponse } from "next/server";
 import getPlaidClient from "@/lib/plaidClient";
 import connectToDatabase from "@/lib/mongodb";
 import PlaidTransaction from "@/models/PlaidTransaction";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const plaidClient = getPlaidClient();
 
 export async function POST(request) {
-  const { action, public_token, access_token, userId, institutionName } = await request.json();
+  // Authenticate user
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user || !session.user.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  // Only allow actions for the logged-in user
+  const { action, public_token, access_token, userId, institutionName } =
+    await request.json();
+  if (userId !== session.user.id) {
+    return NextResponse.json(
+      { error: "Forbidden: userId mismatch" },
+      { status: 403 }
+    );
+  }
 
   // Step 1: Create link token
   if (action === "create_link_token") {
@@ -30,7 +45,10 @@ export async function POST(request) {
     const existingUser = await User.findById(userId);
     // Limit 1 bank account per user, for now, checks if they already have linked one before
     if (existingUser?.bankLinked) {
-      return NextResponse.json({ error: "Bank account already linked, Limit 1 bank account per user" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Bank account already linked, Limit 1 bank account per user" },
+        { status: 400 }
+      );
     }
     await User.findByIdAndUpdate(userId, {
       plaidAccessToken: response.data.access_token,
@@ -42,22 +60,34 @@ export async function POST(request) {
     return NextResponse.json({ access_token: response.data.access_token });
   }
 
-  // Step 3: Initial transaction sync, only on first link. Save all to PlaidTransaction.
+  // Step 3: Transaction sync. Uses stored cursor for incremental syncs.
   if (action === "get_transactions") {
     try {
       await connectToDatabase();
       let at = access_token;
+      let cursor = null;
+
+      // Fetch user's access token and cursor if not provided
+      const User = (await import("@/models/User")).default;
+      const u = await User.findById(userId);
       if (!at) {
-        const User = (await import("@/models/User")).default;
-        const u = await User.findById(userId);
         if (!u?.plaidAccessToken) {
-          return NextResponse.json({ error: "No access token" }, { status: 400 });
+          return NextResponse.json(
+            { error: "No access token" },
+            { status: 400 }
+          );
         }
         at = u.plaidAccessToken;
       }
+      // Use stored cursor if available, otherwise null for initial sync
+      if (u?.plaidCursor) {
+        cursor = u.plaidCursor;
+      }
+
+      // Sync transactions from Plaid using cursor
       const response = await plaidClient.transactionsSync({
         access_token: at,
-        cursor: null,
+        cursor: cursor,
       });
       const { added = [], next_cursor } = response.data;
 
@@ -83,12 +113,10 @@ export async function POST(request) {
         await PlaidTransaction.bulkWrite(ops);
       }
 
-      // also persist the cursor on user for future syncs (optional)
-      const User = (await import("@/models/User")).default;
-      const user = await User.findById(userId);
-      if (user) {
-        user.plaidCursor = next_cursor;
-        await user.save();
+      // Persist the new cursor for future syncs
+      if (u) {
+        u.plaidCursor = next_cursor;
+        await u.save();
       }
 
       return NextResponse.json({ imported: added.length });

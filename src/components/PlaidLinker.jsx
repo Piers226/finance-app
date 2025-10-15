@@ -84,13 +84,6 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
           if (onLinked) onLinked({ ...data, institution: metadata.institution });
           // Save bank name locally
           if (metadata?.institution?.name) setBankName(metadata.institution.name);
-          // Trigger initial sync of transactions on the server
-          await fetch("/api/plaid/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: session?.user?.id }),
-          });
-          if (onTransactions) onTransactions([]);
         } else {
           setError(data.error || "Could not exchange token");
         }
