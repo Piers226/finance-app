@@ -1,6 +1,6 @@
 # Plaid Integration – Current Architecture
 
-> Last updated: 2025-07-13
+> Last updated: 2025-10-17
 
 This document explains **how Plaid is wired into _My Budget Tracker_ today**, covering every step from a user clicking “Link Bank” to ongoing transaction syncs.
 
@@ -23,8 +23,8 @@ Filename: `src/app/api/plaid/route.js`
 | Action | Logic |
 |--------|-------|
 | `create_link_token` | Calls `plaid.linkTokenCreate()` and returns link token JSON. |
-| `exchange_public_token` | Calls `plaid.itemPublicTokenExchange()` → receives **access_token** & **item_id**. <br>Saves to `User` document: <br>`plaidAccessToken`, `plaidItemId`, `plaidCursor = null`, `bankLinked = true`. |
-| `get_transactions` | One-off helper: runs `plaid.transactionsSync()` with `cursor = null` (initial pull of ~100 transactions). |
+| `exchange_public_token` | Calls `plaid.itemPublicTokenExchange()` → receives **access_token** & **item_id**. <br> Performs an initial transaction sync. <br>Saves to `User` document: <br>`plaidAccessToken`, `plaidItemId`, `plaidCursor`, `bankLinked = true`. |
+| `sync_transactions` | Performs an incremental transaction sync using the stored cursor. Updates `added`, `modified`, and `removed` transactions in the `PlaidTransaction` collection. |
 
 ---
 
@@ -41,16 +41,17 @@ export default function getPlaidClient() { /* singleton */ }
 
 ---
 
-## 4. Incremental Transaction Sync – `/api/plaid/sync`
+## 4. Incremental Transaction Sync – `/api/plaid` (`sync_transactions` action)
 
-Endpoint: `POST /api/plaid/sync` `{ userId }`
+Endpoint: `POST /api/plaid` `{ action: "sync_transactions", userId }`
 
 1. Verify user & retrieve `plaidAccessToken` and last `plaidCursor`.
-2. Loop `transactionsSync()` while `has_more === true` (100 transactions per page).
-3. **Added** transactions → upsert into `PendingTransaction` collection.
-4. **Removed** transactions → delete from collection.
-5. Update user’s `plaidCursor` so the next sync only pulls deltas.
-6. Return `{ addedCount }` for UI/logging.
+2. Loop `transactionsSync()` while `has_more === true`.
+3. **Added** transactions → upsert into `PlaidTransaction` collection.
+4. **Modified** transactions → update in collection.
+5. **Removed** transactions → delete from collection.
+6. Update user’s `plaidCursor` so the next sync only pulls deltas.
+7. Return `{ added, modified, removed }` for UI/logging.
 
 Typical trigger mechanisms: cron job, webhook, or manual button.
 
@@ -64,8 +65,8 @@ Typical trigger mechanisms: cron job, webhook, or manual button.
   * `plaidCursor`
   * `bankLinked`
 
-* **PendingTransaction** (`models/PendingTransaction.js`)
-  * Stores raw (or lightly transformed) Plaid transactions awaiting categorisation/aggregation.
+* **PlaidTransaction** (`models/PlaidTransaction.js`)
+  * Stores raw Plaid transactions.
 
 ---
 
@@ -101,10 +102,10 @@ sequenceDiagram
     FE->>API: exchange_public_token (public_token)
     API->>Plaid: itemPublicTokenExchange
     Plaid-->>API: access_token & item_id
-    API->>DB: Save access_token, item_id, cursor=null
+    API->>DB: Save access_token, item_id, cursor
     API-->>FE: OK
-    note over FE: App can now call /api/plaid/sync or get_transactions
-    FE->>API: sync (userId)
+    note over FE: App can now call /api/plaid with sync_transactions
+    FE->>API: sync_transactions (userId)
     API->>DB: read access_token & cursor
     loop while has_more
         API->>Plaid: transactionsSync(access_token, cursor)
@@ -112,7 +113,7 @@ sequenceDiagram
         API->>DB: upsert added / delete removed
     end
     API->>DB: update user.plaidCursor
-    API-->>FE: addedCount
+    API-->>FE: { added, modified, removed }
 ```
 
 ---
@@ -127,10 +128,9 @@ sequenceDiagram
 
 ## 9. Future Improvements
 
-* Use Plaid **webhooks** to trigger `/api/plaid/sync` automatically on new transactions.
+* Use Plaid **webhooks** to trigger the sync automatically on new transactions.
 * Add retries / exponential back-off around Plaid calls.
 * Encrypt `plaidAccessToken` at rest.
-* Move transaction-categorisation logic out of the request path (background job).
 
 ---
 

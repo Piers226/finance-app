@@ -20,10 +20,10 @@ export async function POST(request) {
   }
 
   // Trigger internal sync for this user
-  await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/plaid/sync`, {
+  await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/plaid`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: user._id.toString() }),
+    body: JSON.stringify({ action: "sync_transactions", userId: user._id.toString() }),
   });
 
   return NextResponse.json({ status: "sync triggered" });

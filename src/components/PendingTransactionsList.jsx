@@ -31,11 +31,11 @@ export default function PendingTransactionsList({
     if (!session?.user?.id) return;
     try {
       setSyncLoading(true);
-      await fetch("/api/plaid/sync", {
+      await fetch("/api/plaid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ userId: session.user.id }),
+        body: JSON.stringify({ action: 'sync_transactions', userId: session.user.id }),
       });
       // Immediately fetch updated pending transactions list
       const res = await fetch(`/api/pending-transactions?userId=${session.user.id}`);

@@ -39,20 +39,6 @@ export default function HomePage() {
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [viewMode, setViewMode] = useState("week"); // or 'month'
   const [pendingTransactions, setPendingTransactions] = useState([]);
-  // refetch helper after Plaid sync
-  async function refreshData() {
-    if (!session?.user?.id) return;
-    // refetch pending
-    fetch(`/api/pending-transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setPendingTransactions)
-      .catch((e) => console.error("Failed to refresh pending transactions", e));
-    // refetch transactions list (recent list)
-    fetch(`/api/transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setTransactions)
-      .catch((e) => console.error("Failed to refresh transactions", e));
-  }
 
   // Load pending transactions on page load
   useEffect(() => {
@@ -64,6 +50,7 @@ export default function HomePage() {
     }
   }, [session]);
 
+  // Load transactions and budget categories on page load
   useEffect(() => {
     if (session?.user?.id) {
       setLoadingTransactions(true);
@@ -137,46 +124,6 @@ export default function HomePage() {
     });
   }
 
-  // --- handlers for pending transactions ---
-  async function handleCategorise(tx, category) {
-    // save as official transaction
-    await fetch("/api/transactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: session.user.id,
-        amount: tx.amount,
-        category,
-        description: tx.description,
-        date: tx.date,
-      }),
-    });
-    // remove from pending store
-    const delId = tx._id || tx.id || tx.transactionId;
-    if (delId) {
-      await fetch(`/api/pending-transactions/${delId}`, { method: "DELETE" });
-    }
-    setTransactions((prev) => [{ ...tx, category }, ...prev]);
-    setPendingTransactions((prev) =>
-      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId)
-    );
-  }
-
-  async function handleDiscard(tx) {
-    const delId2 = tx._id || tx.id || tx.transactionId;
-    if (delId2) {
-      await fetch(`/api/pending-transactions/${delId2}`, { method: "DELETE" });
-    }
-    setPendingTransactions((prev) =>
-      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2)
-    );
-  }
-
-  function handlePlaidTransactions() {
-    fetch(`/api/pending-transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setPendingTransactions);
-  }
 
   function normalizeAmount(cat, mode) {
     const { amount, frequency } = cat; // weekly | monthly
@@ -211,6 +158,62 @@ export default function HomePage() {
   );
   const totalSpent = periodTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const viewBudgetLeft = totalBudget - totalSpent;
+
+
+  // ----------- handlers for Plaid/Pending Transactions Table ---------------
+  async function handleCategorise(tx, category) {
+    // save as official transaction
+    await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: session.user.id,
+        amount: tx.amount,
+        category,
+        description: tx.description,
+        date: tx.date,
+      }),
+    });
+    // remove from pending store
+    const delId = tx._id || tx.id || tx.transactionId;
+    if (delId) {
+      await fetch(`/api/pending-transactions/${delId}`, { method: "DELETE" });
+    }
+    setTransactions((prev) => [{ ...tx, category }, ...prev]);
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId)
+    );
+  }
+  async function handleDiscard(tx) {
+    const delId2 = tx._id || tx.id || tx.transactionId;
+    if (delId2) {
+      await fetch(`/api/pending-transactions/${delId2}`, { method: "DELETE" });
+    }
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2)
+    );
+  }
+
+  function handlePlaidTransactions() {
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions);
+  }
+
+    // refetch helper after Plaid sync
+  async function refreshData() {
+    if (!session?.user?.id) return;
+    // refetch pending
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions)
+      .catch((e) => console.error("Failed to refresh pending transactions", e));
+    // refetch transactions list (recent list)
+    fetch(`/api/transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setTransactions)
+      .catch((e) => console.error("Failed to refresh transactions", e));
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", px: 3 }}>
