@@ -8,6 +8,7 @@ const PendingTransactionSchema = new mongoose.Schema({
   description: { type: String },
   date: { type: Date, required: true },
   originalCategory: { type: String },
+  suggestedCategory: { type: String },
 }, { timestamps: true });
 
 export default mongoose.models.PendingTransaction || mongoose.model('PendingTransaction', PendingTransactionSchema);

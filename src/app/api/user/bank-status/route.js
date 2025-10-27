@@ -4,6 +4,8 @@ import User from "@/models/User";
 import connectToDatabase from "@/lib/mongodb";
 import { NextResponse } from "next/server";
 
+
+// Get bank linked status for the logged-in user and bank name
 export async function GET() {
   await connectToDatabase();
   const session = await getServerSession(authOptions);

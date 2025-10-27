@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { Fragment } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -28,6 +28,8 @@ import {
 } from "@mui/material";
 import ChatWindow from "@/components/ChatWindow";
 import { Chat } from "openai/resources/index";
+import { Collapse, IconButton } from "@mui/material";
+import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -39,20 +41,8 @@ export default function HomePage() {
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [viewMode, setViewMode] = useState("week"); // or 'month'
   const [pendingTransactions, setPendingTransactions] = useState([]);
-  // refetch helper after Plaid sync
-  async function refreshData() {
-    if (!session?.user?.id) return;
-    // refetch pending
-    fetch(`/api/pending-transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setPendingTransactions)
-      .catch((e) => console.error("Failed to refresh pending transactions", e));
-    // refetch transactions list (recent list)
-    fetch(`/api/transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setTransactions)
-      .catch((e) => console.error("Failed to refresh transactions", e));
-  }
+  const [categorizing, setCategorizing] = useState(false);
+  const [showPendingTransactions, setShowPendingTransactions] = useState(false);
 
   // Load pending transactions on page load
   useEffect(() => {
@@ -64,6 +54,7 @@ export default function HomePage() {
     }
   }, [session]);
 
+  // Load transactions and budget categories on page load
   useEffect(() => {
     if (session?.user?.id) {
       setLoadingTransactions(true);
@@ -137,46 +128,6 @@ export default function HomePage() {
     });
   }
 
-  // --- handlers for pending transactions ---
-  async function handleCategorise(tx, category) {
-    // save as official transaction
-    await fetch("/api/transactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: session.user.id,
-        amount: tx.amount,
-        category,
-        description: tx.description,
-        date: tx.date,
-      }),
-    });
-    // remove from pending store
-    const delId = tx._id || tx.id || tx.transactionId;
-    if (delId) {
-      await fetch(`/api/pending-transactions/${delId}`, { method: "DELETE" });
-    }
-    setTransactions((prev) => [{ ...tx, category }, ...prev]);
-    setPendingTransactions((prev) =>
-      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId)
-    );
-  }
-
-  async function handleDiscard(tx) {
-    const delId2 = tx._id || tx.id || tx.transactionId;
-    if (delId2) {
-      await fetch(`/api/pending-transactions/${delId2}`, { method: "DELETE" });
-    }
-    setPendingTransactions((prev) =>
-      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2)
-    );
-  }
-
-  function handlePlaidTransactions() {
-    fetch(`/api/pending-transactions?userId=${session.user.id}`)
-      .then((res) => res.json())
-      .then(setPendingTransactions);
-  }
 
   function normalizeAmount(cat, mode) {
     const { amount, frequency } = cat; // weekly | monthly
@@ -211,6 +162,89 @@ export default function HomePage() {
   );
   const totalSpent = periodTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const viewBudgetLeft = totalBudget - totalSpent;
+
+
+  // ----------- handlers for Plaid/Pending Transactions Table ---------------
+  async function handleCategorise(tx, category, amount) {
+    // save as official transaction
+    await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: session.user.id,
+        amount: amount,
+        category,
+        description: tx.description,
+        date: tx.date,
+      }),
+    });
+    // remove from pending store
+    const delId = tx._id || tx.id || tx.transactionId;
+    if (delId) {
+      await fetch(`/api/pending-transactions/${delId}`, { method: "DELETE" });
+    }
+    setTransactions((prev) => [{ ...tx, category, amount }, ...prev]);
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId)
+    );
+  }
+  async function handleDiscard(tx) {
+    const delId2 = tx._id || tx.id || tx.transactionId;
+    if (delId2) {
+      await fetch(`/api/pending-transactions/${delId2}`, { method: "DELETE" });
+    }
+    setPendingTransactions((prev) =>
+      prev.filter((p) => (p._id || p.id || p.transactionId) !== delId2)
+    );
+  }
+
+  function handlePlaidTransactions() {
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions);
+  }
+
+    // refetch helper after Plaid sync
+  async function refreshData() {
+    if (!session?.user?.id) return;
+    // refetch pending
+    fetch(`/api/pending-transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setPendingTransactions)
+      .catch((e) => console.error("Failed to refresh pending transactions", e));
+    // refetch transactions list (recent list)
+    fetch(`/api/transactions?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then(setTransactions)
+      .catch((e) => console.error("Failed to refresh transactions", e));
+  }
+
+  async function handleCategorize() {
+    setCategorizing(true);
+    try {
+      const chatCountRes = await fetch('/api/user/chat-count');
+      const chatCountData = await chatCountRes.json();
+
+      if (chatCountData.chatCount <= 0) {
+        alert("You have no AI categorization credits left.");
+        return;
+      }
+
+      const res = await fetch('/api/transactions/categorize', { method: 'POST' });
+      const data = await res.json();
+      console.log('Categorization result:', data);
+
+      if (res.ok) {
+        await fetch('/api/user/decrement-chat-count', { method: 'POST' });
+      }
+
+      await refreshData();
+    } catch (error) {
+      console.error('Failed to categorize transactions:', error);
+    } finally {
+      setCategorizing(false);
+    }
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", px: 3 }}>
@@ -369,14 +403,29 @@ export default function HomePage() {
           onTransactions={handlePlaidTransactions}
           variant="outlined"
         />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, mt: 2, mb: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleCategorize} 
+            disabled={categorizing}
+            sx={{ borderRadius: 6, textTransform: 'none', fontWeight: 500 }}
+          >
+            {categorizing ? <CircularProgress size={24} /> : 'Categorize Transactions with AI'}
+          </Button>
+          <Button onClick={() => setShowPendingTransactions(!showPendingTransactions)} startIcon={showPendingTransactions ? <KeyboardArrowUp /> : <KeyboardArrowDown />}>
+            Pending Transactions ({pendingTransactions.length})
+          </Button>
+        </Box>
         {/*<ChatWindow />*/}
-        {/*<PendingTransactionsList
-          pending={pendingTransactions}
-          budgetCategories={budgetCategories}
-          onCategorised={handleCategorise}
-          onDiscard={handleDiscard}
-          onSynced={refreshData}
-        />*/}
+        <Collapse in={showPendingTransactions}>
+          <PendingTransactionsList
+            pending={pendingTransactions}
+            budgetCategories={budgetCategories}
+            onCategorised={handleCategorise}
+            onDiscard={handleDiscard}
+            onSynced={refreshData}
+          />
+        </Collapse>
         {showForm && (
           <Box sx={{ mb: 4 }}>
             <TransactionForm

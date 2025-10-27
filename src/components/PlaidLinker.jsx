@@ -1,3 +1,4 @@
+// Solely responsible for Plaid Link button and handling Plaid Link flow
 import { useState, useEffect, useCallback } from "react";
 import {
   Button,
@@ -11,23 +12,25 @@ import { useSession } from "next-auth/react";
 
 export default function PlaidLinker({ onLinked, onTransactions, variant = "contained" }) {
   const { data: session } = useSession();
-  const [linkToken, setLinkToken] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-  const [bankLinked, setBankLinked] = useState(false);
+  const [linkToken, setLinkToken] = useState(null); // Plaid link token from backend
+  const [loading, setLoading] = useState(false); // loading state for button actions
+  const [error, setError] = useState(null); // error message to display
+  const [success, setSuccess] = useState(false); // if user has successfully linked a bank account
+  const [bankLinked, setBankLinked] = useState(false); // tracks if user already has a bank linked (shows/hides button)
   const [bankName, setBankName] = useState("");
   // Capture Plaid OAuth redirect URI if present (Link opened in new tab)
   const receivedRedirectUri = typeof window !== "undefined" && window.location.search.includes("oauth_state_id")
     ? window.location.href
     : undefined;
 
+
+  // ==================== Check if user already has a bank linked, if so, get name and hide button =================
   useEffect(() => {
     async function fetchBankStatus() {
       if (!session?.user?.id) return;
-      const res = await fetch("/api/user/bank-status");
+      const res = await fetch("/api/user/bank-status"); //checks session user id internally
       const data = await res.json();
-      setBankLinked(!!data.bankLinked);
+      setBankLinked(!!data.bankLinked); 
       if (data.bankLinked) {
         setSuccess(true);
         if (data.bankName) setBankName(data.bankName);
@@ -36,7 +39,7 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
     fetchBankStatus();
   }, [session]);
 
-  // Step 1: Get a link token from backend
+  // ======================= Step 1: Get a link token from backend =========================
   const createLinkToken = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -50,7 +53,7 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
         }),
       });
       const data = await res.json();
-      if (data.link_token) setLinkToken(data.link_token);
+      if (data.link_token) setLinkToken(data.link_token); // link token to then be passed to widget
       else setError(data.error || "Could not get link token");
     } catch (err) {
       setError(err.message || "Could not get link token");
@@ -59,7 +62,7 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
     }
   }, [session]);
 
-  // Step 2: Use Plaid Link
+  // ======================= Step 2: Use Plaid Link =========================
   const { open, ready } = usePlaidLink({
     token: linkToken,
     receivedRedirectUri,
@@ -67,7 +70,6 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
       setLoading(true);
       setError(null);
       try {
-        // Step 3: Exchange public_token for access_token
         const res = await fetch("/api/plaid", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -79,18 +81,11 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
           }),
         });
         const data = await res.json();
-        if (data.access_token) {
+        if (data.success) {
           setSuccess(true);
-          if (onLinked) onLinked({ ...data, institution: metadata.institution });
-          // Save bank name locally
+          if (onLinked) onLinked({ institution: metadata.institution });
           if (metadata?.institution?.name) setBankName(metadata.institution.name);
-          // Trigger initial sync of transactions on the server
-          await fetch("/api/plaid/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: session?.user?.id }),
-          });
-          if (onTransactions) onTransactions([]);
+          setBankLinked(true); // to show sync button immediately
         } else {
           setError(data.error || "Could not exchange token");
         }
@@ -131,13 +126,16 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    action: "get_transactions",
+                    action: "sync_transactions",
                     userId: session?.user?.id,
                   }),
                 });
                 const data = await res.json();
-                if (data.error) setError(data.error);
-                else if (onTransactions) onTransactions(data);
+                if (data.error) {
+                  setError(data.error);
+                } else if (onTransactions) {
+                  onTransactions(data);
+                }
               } catch (err) {
                 setError(err.message || "Sync failed");
               } finally {
