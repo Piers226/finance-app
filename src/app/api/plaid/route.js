@@ -29,6 +29,8 @@ async function syncTransactions(userId, accessToken, cursor) {
     newCursor = response.data.next_cursor;
   }
 
+  console.log(`Syncing transactions for user ${userId}. Added: ${added.length}, Modified: ${modified.length}, Removed: ${removed.length}`);
+
   // Process added transactions
   if (added.length > 0) {
     const addedOps = added.map((tx) => ({

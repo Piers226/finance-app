@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,10 +11,11 @@ import {
   Select,
   Typography,
   CircularProgress,
+  TextField,
 } from "@mui/material";
 import { format } from "date-fns";
 
-export default function PendingTransactionsList({
+export default function PendingTransactionsList({ 
   pending,
   budgetCategories,
   onCategorised,
@@ -22,11 +23,23 @@ export default function PendingTransactionsList({
   onSynced,
 }) {
   const [selected, setSelected] = useState({});
+  const [amounts, setAmounts] = useState({});
   const { data: session } = useSession();
   const [syncLoading, setSyncLoading] = useState(false);
-// router may be used elsewhere but no longer for refresh
   const router = useRouter();
 
+  useEffect(() => {
+    const initialSelected = {};
+    const initialAmounts = {};
+    pending.forEach(tx => {
+      if (tx.suggestedCategory) {
+        initialSelected[tx._id] = tx.suggestedCategory;
+      }
+      initialAmounts[tx._id] = tx.amount;
+    });
+    setSelected(initialSelected);
+    setAmounts(initialAmounts);
+  }, [pending]);
   const handleSync = async () => {
     if (!session?.user?.id) return;
     try {
@@ -37,7 +50,6 @@ export default function PendingTransactionsList({
         credentials: "same-origin",
         body: JSON.stringify({ action: 'sync_transactions', userId: session.user.id }),
       });
-      // Immediately fetch updated pending transactions list
       const res = await fetch(`/api/pending-transactions?userId=${session.user.id}`);
       const updated = await res.json();
       if (onSynced) onSynced(updated);
@@ -52,11 +64,21 @@ export default function PendingTransactionsList({
     setSelected((prev) => ({ ...prev, [id]: value }));
   };
 
+  const handleAmountChange = (id, value) => {
+    setAmounts((prev) => ({ ...prev, [id]: parseFloat(value) }));
+  };
+
   const handleSave = async (tx) => {
     const category = selected[tx._id];
+    const amount = amounts[tx._id];
     if (!category) return;
-    await onCategorised(tx, category);
+    await onCategorised(tx, category, amount);
     setSelected((prev) => {
+      const copy = { ...prev };
+      delete copy[tx._id];
+      return copy;
+    });
+    setAmounts((prev) => {
       const copy = { ...prev };
       delete copy[tx._id];
       return copy;
@@ -83,8 +105,15 @@ export default function PendingTransactionsList({
             key={tx._id}
             sx={{ bgcolor: "#fff3e0", borderRadius: 2, mb: 1, px: 2 }}
           >
+            <TextField
+              size="small"
+              type="number"
+              value={amounts[tx._id] || 0}
+              onChange={(e) => handleAmountChange(tx._id, e.target.value)}
+              sx={{ mr: 1, width: 100 }}
+            />
             <ListItemText
-              primary={`$${tx.amount.toFixed(2)} - ${tx.description}`}
+              primary={tx.description}
               secondary={format(new Date(tx.date), "PPP")}
             />
             <Select
