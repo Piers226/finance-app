@@ -12,8 +12,10 @@ import {
   Typography,
   CircularProgress,
   TextField,
+  IconButton,
 } from "@mui/material";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
+import { People } from "@mui/icons-material";
 
 export default function PendingTransactionsList({ 
   pending,
@@ -85,6 +87,15 @@ export default function PendingTransactionsList({
     });
   };
 
+  const handleCollaborate = (tx) => {
+    const amount = amounts[tx._id];
+    const description = tx.description;
+    const transactionDate = new Date(tx.date);
+    const reminderDate = addDays(transactionDate, 30);
+    const category = selected[tx._id];
+    router.push(`/paybacks?amount=${amount}&note=${description}&reminderDate=${reminderDate.toISOString()}&pendingTransactionId=${tx._id}&category=${category}`);
+  };
+
   return (
     <Box sx={{ mt: 4 }}>
       <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
@@ -100,51 +111,61 @@ export default function PendingTransactionsList({
         Pending Transactions
       </Typography>
       <List>
-        {pending.map((tx) => (
-          <ListItem
-            key={tx._id}
-            sx={{ bgcolor: "#fff3e0", borderRadius: 2, mb: 1, px: 2 }}
-          >
-            <TextField
-              size="small"
-              type="number"
-              value={amounts[tx._id] || 0}
-              onChange={(e) => handleAmountChange(tx._id, e.target.value)}
-              sx={{ mr: 1, width: 100 }}
-            />
-            <ListItemText
-              primary={tx.description}
-              secondary={format(new Date(tx.date), "PPP")}
-            />
-            <Select
-              size="small"
-              value={selected[tx._id] || ""}
-              onChange={(e) => handleChange(tx._id, e.target.value)}
-              displayEmpty
-              sx={{ mr: 1, minWidth: 120 }}
+        {pending.map((tx) => {
+          const options = [...budgetCategories];
+          if (tx.suggestedCategory && !budgetCategories.find(c => c.category === tx.suggestedCategory)) {
+            options.push({ _id: tx.suggestedCategory, category: tx.suggestedCategory });
+          }
+
+          return (
+            <ListItem
+              key={tx._id}
+              sx={{ bgcolor: "#fff3e0", borderRadius: 2, mb: 1, px: 2 }}
             >
-              <MenuItem value="" disabled>
-                Category
-              </MenuItem>
-              {budgetCategories.map((cat) => (
-                <MenuItem key={cat._id} value={cat.category}>
-                  {cat.category}
+              <TextField
+                size="small"
+                type="number"
+                value={amounts[tx._id] || 0}
+                onChange={(e) => handleAmountChange(tx._id, e.target.value)}
+                sx={{ mr: 1, width: 100 }}
+              />
+              <ListItemText
+                primary={tx.description}
+                secondary={format(new Date(tx.date), "PPP")}
+              />
+              <Select
+                size="small"
+                value={selected[tx._id] || ""}
+                onChange={(e) => handleChange(tx._id, e.target.value)}
+                displayEmpty
+                sx={{ mr: 1, minWidth: 120 }}
+              >
+                <MenuItem value="" disabled>
+                  Category
                 </MenuItem>
-              ))}
-            </Select>
-            <Button
-              variant="contained"
-              disabled={!selected[tx._id]}
-              onClick={() => handleSave(tx)}
-              sx={{ mr: 1 }}
-            >
-              Save
-            </Button>
-            <Button variant="text" color="error" onClick={() => onDiscard(tx)}>
-              Discard
-            </Button>
-          </ListItem>
-        ))}
+                {options.map((cat) => (
+                  <MenuItem key={cat._id} value={cat.category}>
+                    {cat.category}
+                  </MenuItem>
+                ))}
+              </Select>
+              <Button
+                variant="contained"
+                disabled={!selected[tx._id]}
+                onClick={() => handleSave(tx)}
+                sx={{ mr: 1 }}
+              >
+                Save
+              </Button>
+              <Button variant="text" color="error" onClick={() => onDiscard(tx)}>
+                Discard
+              </Button>
+              <IconButton onClick={() => handleCollaborate(tx)} disabled={!selected[tx._id]}>
+                <People />
+              </IconButton>
+            </ListItem>
+          )}
+        )}
         {pending.length === 0 && (
           <Typography variant="body2">
             No pending transactions to review🎉
