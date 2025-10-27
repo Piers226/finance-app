@@ -28,6 +28,8 @@ import {
 } from "@mui/material";
 import ChatWindow from "@/components/ChatWindow";
 import { Chat } from "openai/resources/index";
+import { Collapse, IconButton } from "@mui/material";
+import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -40,6 +42,7 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState("week"); // or 'month'
   const [pendingTransactions, setPendingTransactions] = useState([]);
   const [categorizing, setCategorizing] = useState(false);
+  const [showPendingTransactions, setShowPendingTransactions] = useState(false);
 
   // Load pending transactions on page load
   useEffect(() => {
@@ -400,22 +403,29 @@ export default function HomePage() {
           onTransactions={handlePlaidTransactions}
           variant="outlined"
         />
-        <Button 
-          variant="contained" 
-          onClick={handleCategorize} 
-          disabled={categorizing}
-          sx={{ mt: 1, mb: 1, borderRadius: 6, textTransform: 'none', fontWeight: 500 }}
-        >
-          {categorizing ? <CircularProgress size={24} /> : 'Categorize Transactions with AI'}
-        </Button>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, mt: 2, mb: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleCategorize} 
+            disabled={categorizing}
+            sx={{ borderRadius: 6, textTransform: 'none', fontWeight: 500 }}
+          >
+            {categorizing ? <CircularProgress size={24} /> : 'Categorize Transactions with AI'}
+          </Button>
+          <Button onClick={() => setShowPendingTransactions(!showPendingTransactions)} startIcon={showPendingTransactions ? <KeyboardArrowUp /> : <KeyboardArrowDown />}>
+            Pending Transactions ({pendingTransactions.length})
+          </Button>
+        </Box>
         {/*<ChatWindow />*/}
-        <PendingTransactionsList
-          pending={pendingTransactions}
-          budgetCategories={budgetCategories}
-          onCategorised={handleCategorise}
-          onDiscard={handleDiscard}
-          onSynced={refreshData}
-        />
+        <Collapse in={showPendingTransactions}>
+          <PendingTransactionsList
+            pending={pendingTransactions}
+            budgetCategories={budgetCategories}
+            onCategorised={handleCategorise}
+            onDiscard={handleDiscard}
+            onSynced={refreshData}
+          />
+        </Collapse>
         {showForm && (
           <Box sx={{ mb: 4 }}>
             <TransactionForm

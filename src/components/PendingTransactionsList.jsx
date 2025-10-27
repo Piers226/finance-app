@@ -98,18 +98,7 @@ export default function PendingTransactionsList({
 
   return (
     <Box sx={{ mt: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-        <Button
-          variant="outlined"
-          onClick={handleSync}
-          disabled={syncLoading || !session?.user?.id}
-        >
-          {syncLoading ? <CircularProgress size={20} /> : "Sync Transactions"}
-        </Button>
-      </Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Pending Transactions
-      </Typography>
+      
       <List>
         {pending.map((tx) => {
           const options = [...budgetCategories];
