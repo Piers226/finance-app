@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 
 export default function SetupPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const router = useRouter();
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
@@ -76,6 +76,27 @@ export default function SetupPage() {
       setIsCustomCategory(false);
       setSuccess(true);
     }
+  };
+
+  const handleDone = async () => {
+    // mark setup complete in the DB so middleware / session logic stop treating user as new
+    try {
+      const res = await fetch("/api/user/complete-setup", { method: "POST" });
+      if (!res.ok) {
+        console.error("Failed to mark setup complete", await res.text());
+        return;
+      }
+      // refresh the client session so the `newAccount` flag is updated
+      try {
+        await update();
+      } catch (e) {
+        console.warn("Session update failed, user may need to reload", e);
+      }
+    } catch (e) {
+      console.error("Failed to mark setup complete", e);
+      return;
+    }
+    router.push("/");
   };
 
   if (!session) return null;
@@ -144,10 +165,24 @@ export default function SetupPage() {
             <Button type="submit" variant="contained">
               Add Category
             </Button>
-            <Button variant="outlined" onClick={() => router.push("/")}>
+            <Button
+              variant="outlined"
+              onClick={handleDone}
+              disabled={budgetCategories.length === 0}
+              title={
+                budgetCategories.length === 0
+                  ? "Add at least one category to finish setup"
+                  : "Finish setup"
+              }
+            >
               Done
             </Button>
           </Box>
+          {budgetCategories.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Add at least one budget category before finishing setup.
+            </Typography>
+          )}
         </Stack>
       </form>
       {success && (

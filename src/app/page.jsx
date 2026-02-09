@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { Fragment } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -69,20 +69,12 @@ export default function HomePage() {
     }
   }, [session]);
 
+  // Redirect new users to the setup flow using the `newAccount` flag
   useEffect(() => {
-    if (session?.user?.id) {
-      setLoadingCategories(true);
-      fetch(`/api/budget-categories?userId=${session.user.id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data) && data.length === 0) {
-            alert("Please set up your budget categories first.");
-            router.push("/setup");
-          }
-        })
-        .finally(() => setLoadingCategories(false));
+    if (session?.user?.newAccount) {
+      router.push("/setup");
     }
-  }, [session]);
+  }, [session, router]);
 
   if (!session) {
     return <LandingPage />;
@@ -128,7 +120,6 @@ export default function HomePage() {
     });
   }
 
-
   function normalizeAmount(cat, mode) {
     const { amount, frequency } = cat; // weekly | monthly
     if (mode === "week") {
@@ -162,7 +153,6 @@ export default function HomePage() {
   );
   const totalSpent = periodTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const viewBudgetLeft = totalBudget - totalSpent;
-
 
   // ----------- handlers for Plaid/Pending Transactions Table ---------------
   async function handleCategorise(tx, category, amount) {
@@ -204,7 +194,7 @@ export default function HomePage() {
       .then(setPendingTransactions);
   }
 
-    // refetch helper after Plaid sync
+  // refetch helper after Plaid sync
   async function refreshData() {
     if (!session?.user?.id) return;
     // refetch pending
@@ -222,7 +212,7 @@ export default function HomePage() {
   async function handleCategorize() {
     setCategorizing(true);
     try {
-      const chatCountRes = await fetch('/api/user/chat-count');
+      const chatCountRes = await fetch("/api/user/chat-count");
       const chatCountData = await chatCountRes.json();
 
       if (chatCountData.chatCount <= 0) {
@@ -230,17 +220,19 @@ export default function HomePage() {
         return;
       }
 
-      const res = await fetch('/api/transactions/categorize', { method: 'POST' });
+      const res = await fetch("/api/transactions/categorize", {
+        method: "POST",
+      });
       const data = await res.json();
-      console.log('Categorization result:', data);
+      console.log("Categorization result:", data);
 
       if (res.ok) {
-        await fetch('/api/user/decrement-chat-count', { method: 'POST' });
+        await fetch("/api/user/decrement-chat-count", { method: "POST" });
       }
 
       await refreshData();
     } catch (error) {
-      console.error('Failed to categorize transactions:', error);
+      console.error("Failed to categorize transactions:", error);
     } finally {
       setCategorizing(false);
     }
@@ -403,16 +395,38 @@ export default function HomePage() {
           onTransactions={handlePlaidTransactions}
           variant="outlined"
         />
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, mt: 2, mb: 1 }}>
-          <Button 
-            variant="contained" 
-            onClick={handleCategorize} 
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 1,
+            mt: 2,
+            mb: 1,
+          }}
+        >
+          <Button
+            variant="contained"
+            onClick={handleCategorize}
             disabled={categorizing}
-            sx={{ borderRadius: 6, textTransform: 'none', fontWeight: 500 }}
+            sx={{ borderRadius: 6, textTransform: "none", fontWeight: 500 }}
           >
-            {categorizing ? <CircularProgress size={24} /> : 'Categorize Transactions with AI'}
+            {categorizing ? (
+              <CircularProgress size={24} />
+            ) : (
+              "Categorize Transactions with AI"
+            )}
           </Button>
-          <Button onClick={() => setShowPendingTransactions(!showPendingTransactions)} startIcon={showPendingTransactions ? <KeyboardArrowUp /> : <KeyboardArrowDown />}>
+          <Button
+            onClick={() => setShowPendingTransactions(!showPendingTransactions)}
+            startIcon={
+              showPendingTransactions ? (
+                <KeyboardArrowUp />
+              ) : (
+                <KeyboardArrowDown />
+              )
+            }
+          >
             Pending Transactions ({pendingTransactions.length})
           </Button>
         </Box>

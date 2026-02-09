@@ -13,30 +13,50 @@ export const authOptions = {
   callbacks: {
     async signIn({ user }) {
       await connectToDatabase();
-      const existing = await User.findOne({ email: user.email });
+      let existing = await User.findOne({ email: user.email });
       //const verified = user.email === "par226@lehigh.edu" || user.email === "piersr52@gmail.com";
       //if (!verified) {
       //  return false;
       //}
+
+      // if user does not exist in db, create a new one
+      //set newAccount to true, once they setup their budget (and go through tutorial), set to false
       if (!existing) {
-        await User.create({
+        existing = await User.create({
           name: user.name,
           email: user.email,
-          hasSetupBudget: false,
+          newAccount: true,
           disabled: false,
         });
       }
-      if (existing.disabled) {
-        return false;
-      }
+      // prevent disabled users (bannded) from signing in
+      if (existing.disabled) return false;
+
       return true;
     },
+    // Put newAccount into the JWT so middleware can read it
+    async jwt({ token, user }) {
+      // Keep token fields (newAccount, disabled, userId) in sync with DB.
+      // `user` exists on initial sign-in; afterwards attempt to use token.email
+      // so we can refresh the flags whenever the jwt callback runs.
+      const email = user?.email || token?.email;
+      if (email) {
+        await connectToDatabase();
+        const dbUser = await User.findOne({ email }).lean();
 
-    async session({ session }) {
-      await connectToDatabase();
-      const user = await User.findOne({ email: session.user.email });
-      if (user) {
-        session.user.id = user._id.toString();
+        token.userId = dbUser?._id?.toString();
+        token.newAccount = dbUser?.newAccount ?? false;
+        token.disabled = dbUser?.disabled ?? false;
+        token.email = email;
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.userId;
+        session.user.newAccount = token.newAccount;
+        session.user.disabled = token.disabled;
       }
       return session;
     },
