@@ -1,5 +1,5 @@
 // Solely responsible for Plaid Link button and handling Plaid Link flow
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Button,
   Box,
@@ -18,6 +18,8 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
   const [success, setSuccess] = useState(false); // if user has successfully linked a bank account
   const [bankLinked, setBankLinked] = useState(false); // tracks if user already has a bank linked (shows/hides button)
   const [bankName, setBankName] = useState("");
+  const [syncMessage, setSyncMessage] = useState(null);
+  const timerRef = useRef(null);
   // Capture Plaid OAuth redirect URI if present (Link opened in new tab)
   const receivedRedirectUri = typeof window !== "undefined" && window.location.search.includes("oauth_state_id")
     ? window.location.href
@@ -86,6 +88,8 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
           if (onLinked) onLinked({ institution: metadata.institution });
           if (metadata?.institution?.name) setBankName(metadata.institution.name);
           setBankLinked(true); // to show sync button immediately
+          if (onTransactions) onTransactions(data);
+          showSyncMessageFromResponse(data, true);
         } else {
           setError(data.error || "Could not exchange token");
         }
@@ -107,9 +111,32 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
     }
   }, [linkToken, ready, open]);
 
+  // cleanup any pending timers for sync message
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  // Build and show a sync/import message based only on backend `added` count
+  const showSyncMessageFromResponse = (data, isInitial = false) => {
+    if (!data || typeof data !== "object") return;
+    let added = 0;
+    if (typeof data.added === "number") added = data.added;
+    if (added > 0) {
+      const message = isInitial
+        ? `${added} transaction${added === 1 ? "" : "s"} imported`
+        : `${added} transaction${added === 1 ? "" : "s"} synced`;
+      setSyncMessage(message);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
   return (
     <Box sx={{ my: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
+      {syncMessage && <Alert severity="success">{syncMessage}</Alert>}
       {bankLinked ? (
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
@@ -133,8 +160,9 @@ export default function PlaidLinker({ onLinked, onTransactions, variant = "conta
                 const data = await res.json();
                 if (data.error) {
                   setError(data.error);
-                } else if (onTransactions) {
-                  onTransactions(data);
+                } else {
+                  if (onTransactions) onTransactions(data);
+                  showSyncMessageFromResponse(data, false);
                 }
               } catch (err) {
                 setError(err.message || "Sync failed");

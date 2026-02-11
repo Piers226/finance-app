@@ -131,7 +131,7 @@ export async function POST(request) {
         bankName: institutionName || "",
       });
 
-      return NextResponse.json({ success: true, initial_import: added });
+      return NextResponse.json({ success: true, added });
     } catch (err) {
       console.error("Plaid exchange_public_token error", err.response?.data || err);
       return NextResponse.json({ error: "Could not link account." }, { status: 500 });
