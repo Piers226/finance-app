@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import getPlaidClient from "@/lib/plaidClient";
 import connectToDatabase from "@/lib/mongodb";
-import PlaidTransaction from "@/models/PlaidTransaction";
+import PendingTransaction from "@/models/PendingTransaction";
 import User from "@/models/User";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -21,7 +21,7 @@ async function syncTransactions(userId, accessToken, cursor) {
       access_token: accessToken,
       cursor: newCursor,
     });
-
+    //console.log("Plaid response", response.data);
     added = added.concat(response.data.added);
     modified = modified.concat(response.data.modified);
     removed = removed.concat(response.data.removed);
@@ -42,15 +42,16 @@ async function syncTransactions(userId, accessToken, cursor) {
           amount: tx.amount,
           date: new Date(tx.authorized_date || tx.date),
           description: tx.merchant_name || tx.name,
-          category: tx.personal_finance_category?.primary
+          originalCategory: tx.personal_finance_category?.primary
             ? `${tx.personal_finance_category.primary}.${tx.personal_finance_category.detailed}`
             : tx.category?.[0] || "Other",
+          suggestedCategory: tx.category?.[0] || null,
           raw: tx,
         },
         upsert: true,
       },
     }));
-    await PlaidTransaction.bulkWrite(addedOps);
+    await PendingTransaction.bulkWrite(addedOps);
   }
 
   // Process modified transactions
@@ -62,14 +63,15 @@ async function syncTransactions(userId, accessToken, cursor) {
           amount: tx.amount,
           date: new Date(tx.authorized_date || tx.date),
           description: tx.merchant_name || tx.name,
-          category: tx.personal_finance_category?.primary
+          originalCategory: tx.personal_finance_category?.primary
             ? `${tx.personal_finance_category.primary}.${tx.personal_finance_category.detailed}`
             : tx.category?.[0] || "Other",
+          suggestedCategory: tx.category?.[0] || null,
           raw: tx,
         },
       },
     }));
-    await PlaidTransaction.bulkWrite(modifiedOps);
+    await PendingTransaction.bulkWrite(modifiedOps);
   }
 
   // Process removed transactions
@@ -79,7 +81,7 @@ async function syncTransactions(userId, accessToken, cursor) {
         filter: { transactionId: tx.transaction_id },
       },
     }));
-    await PlaidTransaction.bulkWrite(removedOps);
+    await PendingTransaction.bulkWrite(removedOps);
   }
 
   return { newCursor, added: added.length, modified: modified.length, removed: removed.length };

@@ -1,109 +1,167 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import connectToDatabase from '@/lib/mongodb';
-import User from '@/models/User';
-import BudgetCategory from '@/models/BudgetCategory';
-import PlaidTransaction from '@/models/PlaidTransaction';
-import PendingTransaction from '@/models/PendingTransaction';
-import Transaction from '@/models/Transaction';
-import OpenAI from 'openai';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import connectToDatabase from "@/lib/mongodb";
+import BudgetCategory from "@/models/BudgetCategory";
+import PendingTransaction from "@/models/PendingTransaction";
+import OpenAI from "openai";
 
+import { z } from "zod";
+import { zodTextFormat } from "openai/helpers/zod";
+
+export const runtime = "nodejs";
+
+// create and init client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ZOD schema for openai response
+// OUTPUT: { transactions: [ { transactionId: string, category: string | null, confidence: 0-1 } ] }
+function buildOutputSchema(categoryNames) {
+  const CategoryEnum =
+    categoryNames.length > 0 ? z.enum(categoryNames) : z.never();
+
+  // Structured Outputs requires all fields required. set confidence nullable.
+  return z.object({
+    transactions: z.array(
+      z.object({
+        transactionId: z.string(),
+        category: categoryNames.length > 0 ? CategoryEnum.nullable() : z.null(),
+        confidence: z.number().min(0).max(1).nullable(),
+      })
+    ),
+  });
+}
+
+// Prepare transaction payload for OpenAI
+function safeTxPayload(pendingTransactions) {
+  return pendingTransactions.map((t) => ({
+    transactionId: String(t.transactionId),
+    description: (t.description ?? "").slice(0, 140),
+    amount:
+      typeof t.amount === "number"
+        ? t.amount
+        : Number.isFinite(Number(t.amount))
+          ? Number(t.amount)
+          : null,
+    personal_finance_category: t.raw?.personal_finance_category ?? null,
+  }));
+}
+
 export async function POST(request) {
-  await connectToDatabase();
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user || !session.user.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const userId = session.user.id;
-
-  // Step 1: Get user's custom budget categories
-  const budgetCategories = await BudgetCategory.find({ userId });
-  const categoryNames = budgetCategories.map(c => c.category);
-
-  // Step 2: Get all Plaid transactions for the user
-  const plaidTransactions = await PlaidTransaction.find({ userId }).sort({ date: -1 }).limit(50);
-
-  if (plaidTransactions.length === 0) {
-    return NextResponse.json({ message: 'No Plaid transactions to categorize.' });
-  }
-
-  // Step 3: Call OpenAI to re-categorize
-  const prompt = `You are a personal finance assistant. Re-categorize the following bank transactions based on this user's custom budget categories: [${categoryNames.join(', ')}]. For each transaction, provide a JSON object with its 'transactionId' and the most appropriate 'category' from the user's list. Use the provided 'personal_finance_category' for additional context. If a transaction does not fit any of the custom categories, set the 'category' to null. The root of your JSON response must be a key named \"transactions\" which contains an array of these objects. Here are the transactions:
-${JSON.stringify(plaidTransactions.map(t => ({ transactionId: t.transactionId, description: t.description, amount: t.amount, personal_finance_category: t.raw.personal_finance_category })), null, 2)}`;
-
-  console.log("Prompt being sent to OpenAI:", prompt);
-
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo-1106',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+    await connectToDatabase();
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing OPENAI_API_KEY" },
+        { status: 500 }
+      );
+    }
+
+    const userId = session.user.id;
+
+    // Load user's custom categories e.g "Groceries", "Dining Out", "Transport"
+    const budgetCategories = await BudgetCategory.find({ userId }).lean();
+    const categoryNames = budgetCategories
+      .map((c) => c.category)
+      .filter((x) => typeof x === "string" && x.trim().length > 0);
+    //if no categories, return early
+    if (categoryNames.length === 0) {
+      return NextResponse.json(
+        { message: "No custom budget categories found for this user." },
+        { status: 200 }
+      );
+    }
+
+    // Load pending transactions (transactions needing categorization), limit to 50 most recent
+    const pendingTransactions = await PendingTransaction.find({ userId })
+      .sort({ date: -1 })
+      .limit(50)
+      .lean();
+
+    if (pendingTransactions.length === 0) {
+      return NextResponse.json(
+        { message: "No pending transactions to categorize." },
+        { status: 200 }
+      );
+    }
+    // create ZOD schema based on categories
+    const OutputSchema = buildOutputSchema(categoryNames);
+
+
+    const systemInstructions = [
+      "You are a personal finance categorization assistant.",
+      "For each transaction, select the single best category from the provided categories list.",
+      "If none fit, return category: null.",
+      "Return a confidence score between 0 and 1; if unsure, return null.",
+      "Use personal_finance_category only as a hint (it may be wrong).",
+      "Return only the structured output that matches the schema.",
+    ].join(" ");
+
+    const payload = {
+      categories: categoryNames,
+      transactions: safeTxPayload(pendingTransactions),
+    };
+
+    // Send to OPENAI and wait for response
+    const response = await openai.responses.parse({
+      model: "gpt-4o-mini",
+      input: [
+        { role: "system", content: systemInstructions },
+        { role: "user", content: JSON.stringify(payload) },
+      ],
+      text: {
+        format: zodTextFormat(OutputSchema, "transaction_categorization"),
+      },
+      temperature: 0,
+      store: false,
     });
 
-    console.log("Response from OpenAI:", response.choices[0].message.content);
+    const parsed = response.output_parsed;
 
-    const categorizedData = JSON.parse(response.choices[0].message.content);
-
-    // Validate the structure of the OpenAI response
-    if (!categorizedData || !Array.isArray(categorizedData.transactions)) {
-      console.error('Malformed OpenAI response:', response.choices[0].message.content);
-      throw new Error('Malformed OpenAI response: expected a `transactions` array.');
+    // parsed is already schema-validated, keep a guard anyway
+    if (!parsed || !Array.isArray(parsed.transactions)) {
+      return NextResponse.json(
+        { error: "Malformed OpenAI structured output." },
+        { status: 500 }
+      );
     }
 
-    const categorizedTransactions = categorizedData.transactions;
+    // Apply updates to DB in bulk
+    const updateOps = parsed.transactions.map((tx) => ({
+      updateOne: {
+        filter: { transactionId: tx.transactionId, userId },
+        update: {
+          $set: {
+            suggestedCategory: tx.category,
+            suggestedCategoryConfidence: tx.confidence,
+          },
+        },
+        upsert: false,
+      },
+    }));
 
-    const toPend = [];
-
-    for (const tx of categorizedTransactions) {
-      const originalTx = plaidTransactions.find(t => t.transactionId === tx.transactionId);
-      if (!originalTx) continue;
-
-      toPend.push({ ...originalTx.toObject(), suggestedCategory: tx.category });
+    if (updateOps.length > 0) {
+      await PendingTransaction.bulkWrite(updateOps, { ordered: false });
     }
-
-    // Step 4: Insert re-categorized transactions into the main Transaction collection (DISABLED FOR TESTING)
-    // if (toCategorize.length > 0) {
-    //   const transactionOps = toCategorize.map(tx => ({
-    //     userId,
-    //     amount: tx.amount,
-    //     category: tx.category,
-    //     description: tx.description,
-    //     date: tx.date,
-    //   }));
-    //   await Transaction.insertMany(transactionOps);
-    // }
-
-    // Step 5: Insert transactions that couldn't be re-categorized into PendingTransaction
-    if (toPend.length > 0) {
-      const pendingOps = toPend.map(tx => ({
-        userId,
-        transactionId: tx.transactionId,
-        amount: tx.amount,
-        date: tx.date,
-        description: tx.description,
-        raw: tx.raw,
-        suggestedCategory: tx.suggestedCategory,
-      }));
-      await PendingTransaction.insertMany(pendingOps);
-    }
-
-    // Step 6: Cleanup - remove all processed transactions from PlaidTransaction
-    const processedTxIds = plaidTransactions.map(t => t.transactionId);
-    await PlaidTransaction.deleteMany({ transactionId: { $in: processedTxIds } });
 
     return NextResponse.json({
-      categorized: 0, // toCategorize.length,
-      pending: toPend.length
+      suggested: updateOps.length,
+      model: response.model ?? "gpt-4o-mini",
+      request_id: response._request_id,
     });
-
   } catch (error) {
-    console.error('Error categorizing transactions with OpenAI:', error);
-    return NextResponse.json({ error: 'Failed to categorize transactions.' }, { status: 500 });
+    console.error("Error categorizing transactions with OpenAI:", error);
+    return NextResponse.json(
+      { error: "Failed to categorize transactions." },
+      { status: 500 }
+    );
   }
 }
